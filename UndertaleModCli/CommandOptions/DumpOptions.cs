@@ -36,6 +36,6 @@ public class DumpOptions
 	/// Determines if embedded textures should get dumped
 	/// </summary>
 	public bool Textures { get; set; }
-
     public bool Sprites { get; set; }
+	public bool Sounds { get; set; }
 }
