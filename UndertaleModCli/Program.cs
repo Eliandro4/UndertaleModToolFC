@@ -134,7 +134,8 @@ public partial class Program : IScriptInterface
             new Option<string[]>(new[] { "-c", "--code" },
                 $"The code files to dump. Ex. gml_Script_init_map gml_Script_reset_map. Specify '{UMT_DUMP_ALL}' to dump all code entries"),
             new Option<bool>(new[] { "-s", "--strings" }, "Whether to dump all strings"),
-            new Option<bool>(new[] { "-t", "--textures" }, "Whether to dump all embedded textures")
+            new Option<bool>(new[] { "-t", "--textures" }, "Whether to dump all embedded textures"),
+            new Option<bool>(new[] { "-i", "--sprites" }, "Whether to dump all sprites")
         };
         dumpCommand.Handler = CommandHandler.Create<DumpOptions>(Program.Dump);
 
@@ -372,6 +373,9 @@ public partial class Program : IScriptInterface
         // If user wanted to dump embedded textures, dump all of them
         if (options.Textures)
             program.DumpAllTextures();
+
+        if (options.Sprites)
+            program.DumpAllSprites();
 
         return EXIT_SUCCESS;
     }
@@ -651,6 +655,60 @@ public partial class Program : IScriptInterface
         File.WriteAllText($"{directory}/strings.txt", combinedText.ToString());
     }
 
+    private void DumpAllSprites()
+    {
+        bool padded = (ScriptQuestion("Export sprites with padding?"));
+
+        bool useSubDirectories = ScriptQuestion("Export sprites into subdirectories?");
+
+        string texFolder = Environment.CurrentDirectory + "/Export_Sprites" + Path.DirectorySeparatorChar;
+        if (Directory.Exists(texFolder))
+        {
+            ScriptError("A sprites export already exists. Please remove it.", "Error");
+            return;
+        }
+
+        Directory.CreateDirectory(texFolder);
+
+        SetProgressBar(null, "Sprites", 0, Data.Sprites.Count);
+        StartProgressBarUpdater();
+
+        TextureWorker worker = null;
+        using (worker = new())
+        {
+            DumpSprites();
+        }
+
+        StopProgressBarUpdater();
+        HideProgressBar();
+        ScriptMessage($"Export Complete.\n\nLocation: {texFolder}");
+
+        void DumpSprites()
+        {
+            Parallel.ForEach(Data.Sprites, DumpSprite);
+        }
+
+        void DumpSprite(UndertaleSprite sprite)
+        {
+            if (sprite is not null)
+            {
+                string outputFolder = texFolder;
+                if (useSubDirectories)
+                    outputFolder = Path.Combine(outputFolder, sprite.Name.Content);
+                if (sprite.Textures.Count > 0)
+                    Directory.CreateDirectory(outputFolder);
+
+                for (int i = 0; i < sprite.Textures.Count; i++)
+                {
+                    if (sprite.Textures[i]?.Texture != null)
+                        worker.ExportAsPNG(sprite.Textures[i].Texture, Path.Combine(outputFolder, $"{sprite.Name.Content}_{i}.png"), null, padded);
+                }
+            }
+
+            IncrementProgressParallel();
+        }
+
+    }
     /// <summary>
     /// Dumps all embedded textures in a data file.
     /// </summary>
