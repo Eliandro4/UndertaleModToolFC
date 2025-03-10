@@ -18,6 +18,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UndertaleModLib.Models;
 using Newtonsoft.Json;
+using System.Runtime.CompilerServices;
 
 namespace UndertaleModCli;
 
@@ -136,7 +137,8 @@ public partial class Program : IScriptInterface
             new Option<bool>(new[] { "-s", "--strings" }, "Whether to dump all strings"),
             new Option<bool>(new[] { "-t", "--textures" }, "Whether to dump all embedded textures"),
             new Option<bool>(new[] { "-i", "--sprites" }, "Whether to dump all sprites"),
-            new Option<bool>(new[] { "-m", "--sounds"}, "Wheter to dump all sounds")
+            new Option<bool>(new[] { "-m", "--sounds"}, "Wheter to dump all sounds"),
+            new Option<bool>(new[] { "-f", "--fontdata"}, "Wheter to dump all fontdata")
         };
         dumpCommand.Handler = CommandHandler.Create<DumpOptions>(Program.Dump);
 
@@ -380,6 +382,9 @@ public partial class Program : IScriptInterface
 
         if (options.Sounds)
             program.DumpAllSounds();
+
+        if (options.FontData)
+            program.DumpFontData();
         return EXIT_SUCCESS;
     }
 
@@ -877,6 +882,91 @@ Note: If an error window stating that 'the directory is not empty' appears, plea
                 File.WriteAllBytes(soundFilePath + audioExt, GetSoundData(sound));
 
             IncProgressLocal();
+        }
+
+    }
+
+    private void DumpFontData()
+    {
+        string fntFolder = Environment.CurrentDirectory + "/Export_Fonts";
+        Directory.CreateDirectory(fntFolder);
+        List<string> input = GetFontSelection();
+
+        if (input.Count == 0)
+            return;
+
+        string[] arrayString = input.ToArray();
+
+        SetProgressBar(null, "Fonts", 0, Data.Fonts.Count);
+        StartProgressBarUpdater();
+
+        TextureWorker worker = null;
+        using (worker = new())
+        {
+            DumpFonts();
+        }
+
+        StopProgressBarUpdater();
+        HideProgressBar();
+        ScriptMessage($"Export Complete.\n\nLocation: {fntFolder}");
+
+        void DumpFonts()
+        {
+            foreach (var font in Data.Fonts)
+            {
+                DumpFont(font);
+            }
+        }
+
+        void DumpFont(UndertaleFont font)
+        {
+            if (font is not null && arrayString.Contains(font.Name.ToString().Replace("\"", "")))
+            {
+                worker.ExportAsPNG(font.Texture, Path.Combine(fntFolder, $"{font.Name.Content}.png"));
+                using (StreamWriter writer = new(Path.Combine(fntFolder, $"glyphs_{font.Name.Content}.csv")))
+                {
+                    writer.WriteLine($"{font.DisplayName};{font.EmSize};{font.Bold};{font.Italic};{font.Charset};{font.AntiAliasing};{font.ScaleX};{font.ScaleY}");
+
+                    foreach (var g in font.Glyphs)
+                    {
+                        writer.WriteLine($"{g.Character};{g.SourceX};{g.SourceY};{g.SourceWidth};{g.SourceHeight};{g.Shift};{g.Offset}");
+                    }
+                }
+            }
+
+            IncrementProgressParallel();
+        }
+
+        List<string> GetFontSelection()
+        {
+            List<string> selectedFonts = new();
+            Console.WriteLine("Select fonts to export (comma-separated numbers, or 'all'):");
+
+            for (int i = 0; i < Data.Fonts.Count; i++)
+            {
+                if (Data.Fonts[i] is not null)
+                    Console.WriteLine($"[{i}] {Data.Fonts[i].Name.ToString().Replace("\"", "")}");
+            }
+
+            Console.Write("Selection: ");
+            string input = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(input))
+                return selectedFonts;
+
+            if (input.Trim().ToLower() == "all")
+            {
+                return Data.Fonts.Where(f => f is not null).Select(f => f.Name.ToString().Replace("\"", "")).ToList();
+            }
+
+            foreach (var index in input.Split(','))
+            {
+                if (int.TryParse(index.Trim(), out int idx) && idx >= 0 && idx < Data.Fonts.Count && Data.Fonts[idx] is not null)
+                {
+                    selectedFonts.Add(Data.Fonts[idx].Name.ToString().Replace("\"", ""));
+                }
+            }
+
+            return selectedFonts;
         }
 
     }
