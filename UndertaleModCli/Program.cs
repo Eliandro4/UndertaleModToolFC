@@ -138,7 +138,7 @@ public partial class Program : IScriptInterface
             new Option<bool>(new[] { "-t", "--textures" }, "Whether to dump all embedded textures"),
             new Option<bool>(new[] { "-i", "--sprites" }, "Whether to dump all sprites"),
             new Option<bool>(new[] { "-m", "--sounds"}, "Wheter to dump all sounds"),
-            new Option<bool>(new[] { "-f", "--fontdata"}, "Wheter to dump all fontdata")
+            new Option<string[]>(new[] { "-f", "--fontdata"}, $"Whether to dump fontdata. Specify '{UMT_DUMP_ALL}' to dump all fontdata. Use '-list' after '-f' to list the fontdata")
         };
         dumpCommand.Handler = CommandHandler.Create<DumpOptions>(Program.Dump);
 
@@ -383,8 +383,8 @@ public partial class Program : IScriptInterface
         if (options.Sounds)
             program.DumpAllSounds();
 
-        if (options.FontData)
-            program.DumpFontData();
+        if (options.FontData?.Length > 0)
+            program.DumpFontData(options.FontData);
         return EXIT_SUCCESS;
     }
 
@@ -886,7 +886,7 @@ Note: If an error window stating that 'the directory is not empty' appears, plea
 
     }
 
-    private void DumpFontData()
+    private void DumpFontData(string[] Paranos)
     {
         string fntFolder = Environment.CurrentDirectory + "/Export_Fonts";
         Directory.CreateDirectory(fntFolder);
@@ -939,31 +939,27 @@ Note: If an error window stating that 'the directory is not empty' appears, plea
 
         List<string> GetFontSelection()
         {
-            List<string> selectedFonts = new();
-            Console.WriteLine("Select fonts to export (comma-separated numbers, or 'all'):");
 
-            for (int i = 0; i < Data.Fonts.Count; i++)
+            List<string> selectedFonts = new();
+
+            if (Paranos.Contains("-list"))
             {
-                if (Data.Fonts[i] is not null)
-                    Console.WriteLine($"[{i}] {Data.Fonts[i].Name.ToString().Replace("\"", "")}");
+                for (int i = 0; i < Data.Fonts.Count; i++)
+                {
+                    if (Data.Fonts[i] is not null)
+                        Console.WriteLine($"{Data.Fonts[i].Name.ToString().Replace("\"", "")}");
+                }
             }
 
-            Console.Write("Selection: ");
-            string input = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(input))
-                return selectedFonts;
-
-            if (input.Trim().ToLower() == "all")
+            if (Paranos.Contains(UMT_DUMP_ALL))
             {
                 return Data.Fonts.Where(f => f is not null).Select(f => f.Name.ToString().Replace("\"", "")).ToList();
             }
 
-            foreach (var index in input.Split(','))
+            foreach (string Fonto in Paranos)
             {
-                if (int.TryParse(index.Trim(), out int idx) && idx >= 0 && idx < Data.Fonts.Count && Data.Fonts[idx] is not null)
-                {
-                    selectedFonts.Add(Data.Fonts[idx].Name.ToString().Replace("\"", ""));
-                }
+                if (Fonto!="-list")
+                selectedFonts.Add(Fonto);
             }
 
             return selectedFonts;
