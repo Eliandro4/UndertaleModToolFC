@@ -19,6 +19,7 @@ using System.Threading.Tasks;
 using UndertaleModLib.Models;
 using Newtonsoft.Json;
 using System.Runtime.CompilerServices;
+using UndertaleModLib.Decompiler;
 
 namespace UndertaleModCli;
 
@@ -137,8 +138,9 @@ public partial class Program : IScriptInterface
             new Option<bool>(new[] { "-s", "--strings" }, "Whether to dump all strings"),
             new Option<bool>(new[] { "-t", "--textures" }, "Whether to dump all embedded textures"),
             new Option<bool>(new[] { "-i", "--sprites" }, "Whether to dump all sprites"),
-            new Option<bool>(new[] { "-m", "--sounds"}, "Wheter to dump all sounds"),
-            new Option<string[]>(new[] { "-f", "--fontdata"}, $"Whether to dump fontdata. Specify '{UMT_DUMP_ALL}' to dump all fontdata. Use '-list' after '-f' to list the fontdata")
+            new Option<bool>(new[] { "-m", "--sounds"}, "Whether to dump all sounds"),
+            new Option<string[]>(new[] { "-f", "--fontdata"}, $"Whether to dump fontdata. Specify '{UMT_DUMP_ALL}' to dump all fontdata. Use '-list' after '-f' to list the fontdata"),
+            new Option<bool>(new[] {"-a", "--assembly"}, "Whether to dump all scripts in assembly")
         };
         dumpCommand.Handler = CommandHandler.Create<DumpOptions>(Program.Dump);
 
@@ -385,6 +387,11 @@ public partial class Program : IScriptInterface
 
         if (options.FontData?.Length > 0)
             program.DumpFontData(options.FontData);
+
+        if (options.ASM)
+            Console.WriteLine("");
+            program.DumpAllAssembly();
+
         return EXIT_SUCCESS;
     }
 
@@ -963,6 +970,55 @@ Note: If an error window stating that 'the directory is not empty' appears, plea
             }
 
             return selectedFonts;
+        }
+
+    }
+
+    private void DumpAllAssembly()
+    {
+        string codeFolder = Environment.CurrentDirectory + "\\Export_Assembly";
+        if (Directory.Exists(codeFolder))
+        {
+            ScriptError("an assembly export already exists. please remove it.", "error");
+            return;
+        }
+
+        Directory.CreateDirectory(codeFolder);
+
+        List<UndertaleCode> toDump = Data.Code.Where(c => c.ParentEntry is null).ToList();
+
+        SetProgressBar(null, "Code Entries", 0, toDump.Count);
+        StartProgressBarUpdater();
+
+        DumpCode();
+
+        StopProgressBarUpdater();
+        HideProgressBar();
+        ScriptMessage("Export Complete.\n\nLocation: " + codeFolder);
+
+        void DumpCode()
+        {
+            foreach (var code in toDump)
+            {
+                DumpCodeEntry(code);
+            }
+        }
+
+        void DumpCodeEntry(UndertaleCode code)
+        {
+            if (code is not null)
+            {
+                string path = codeFolder + "\\" + code.Name.Content + ".asm";
+                try
+                {
+                    File.WriteAllText(path, code != null ? code.Disassemble(Data.Variables, Data.CodeLocals?.For(code)) : "");
+                }
+                catch (Exception e)
+                {
+                    File.WriteAllText(path, "/*\nDISASSEMBLY FAILED!\n\n" + e.ToString() + "\n*/");
+                }
+            }
+            IncrementProgressParallel();
         }
 
     }
