@@ -31,4 +31,6 @@ public class ReplaceOptions
     /// Equal separated values of embedded texture and the file to replace the embedded texture with.
     /// </summary>
     public string[] Textures { get; set; }
+
+    public string Strings { get; set; }
 }
