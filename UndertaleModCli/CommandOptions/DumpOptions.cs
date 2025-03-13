@@ -38,4 +38,6 @@ public class DumpOptions
 	public bool Textures { get; set; }
 
     public bool Sprites { get; set; }
+
+    public bool Sounds { get; set; }
 }

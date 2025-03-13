@@ -136,7 +136,8 @@ public partial class Program : IScriptInterface
                 $"The code files to dump. Ex. gml_Script_init_map gml_Script_reset_map. Specify '{UMT_DUMP_ALL}' to dump all code entries"),
             new Option<bool>(new[] { "-s", "--strings" }, "Whether to dump all strings"),
             new Option<bool>(new[] { "-t", "--textures" }, "Whether to dump all embedded textures"),
-            new Option<bool>(new[] { "-i", "--sprites" }, "Whether to dump all sprites")
+            new Option<bool>(new[] { "-i", "--sprites" }, "Whether to dump all sprites"),
+            new Option<bool>(new[] { "-m", "--sounds"}, "Wheter to dump all sounds")
         };
         dumpCommand.Handler = CommandHandler.Create<DumpOptions>(Program.Dump);
 
@@ -377,6 +378,9 @@ public partial class Program : IScriptInterface
 
         if (options.Sprites)
             program.DumpAllSprites();
+
+        if (options.Sounds)
+            program.DumpAllSounds();
 
         return EXIT_SUCCESS;
     }
@@ -725,6 +729,157 @@ public partial class Program : IScriptInterface
             }
 
             IncrementProgressParallel();
+        }
+
+    }
+
+    private void DumpAllSounds()
+    {
+        string winFolder = Environment.CurrentDirectory + "/"; // The folder data.win is located in.
+        bool usesAGRP = (Data.AudioGroups.Count > 0);
+        string exportedSoundsDir = Path.Combine(winFolder, "Exported_Sounds");
+        Dictionary<string, IList<UndertaleEmbeddedAudio>> loadedAudioGroups = new Dictionary<string, IList<UndertaleEmbeddedAudio>>();
+        // Overwrite Folder Check One
+        if (Directory.Exists(exportedSoundsDir))
+        {
+            bool overwriteCheckOne = ScriptQuestion(@"An 'Exported_Sounds' folder already exists.
+
+Would you like to remove it? This may take some time.
+
+Note: If an error window stating that 'the directory is not empty' appears, please try again or delete the folder manually.");
+            if (!overwriteCheckOne)
+            {
+                ScriptError("An 'Exported_Sounds' folder already exists. Please remove it.", "Error: Export already exists.");
+                return;
+            }
+            Directory.Delete(exportedSoundsDir, true);
+        }
+
+        // EXTERNAL OGG CHECK
+        bool externalOGG_Copy = ScriptQuestion(@"This script exports embedded sounds.
+However, it can also export the external OGGs to a separate folder.
+If you would like to export both, select 'YES'.
+If you just want the embedded sounds, select 'NO'.");
+
+        // Overwrite Folder Check Two
+        if (Directory.Exists(exportedSoundsDir) && externalOGG_Copy)
+        {
+            bool overwriteCheckTwo = ScriptQuestion(@"A 'External_Sounds' folder already exists.
+Would you like to remove it? This may take some time.
+
+Note: If an error window stating that 'the directory is not empty' appears, please try again or delete the folder manually.");
+            if (!overwriteCheckTwo)
+            {
+                ScriptError("A 'External_Sounds' folder already exists. Please remove it.", "Error: Export already exists.");
+                return;
+            }
+
+            Directory.Delete(exportedSoundsDir, true);
+        }
+
+        // Group by audio group check
+        bool groupedExport = usesAGRP && ScriptQuestion("Group sounds by audio group?");
+
+        byte[] EMPTY_WAV_FILE_BYTES = System.Convert.FromBase64String("UklGRiQAAABXQVZFZm10IBAAAAABAAIAQB8AAAB9AAAEABAAZGF0YQAAAAA=");
+        string DEFAULT_AUDIOGROUP_NAME = "audiogroup_default";
+
+        int maxCount = Data.Sounds.Count;
+        SetProgressBar(null, "Sound", 0, maxCount);
+        StartProgressBarUpdater();
+
+        DumpSounds(); // Runs synchronously
+
+        StopProgressBarUpdater();
+        HideProgressBar();
+        if (Directory.Exists(exportedSoundsDir))
+            ScriptMessage("Sounds exported to " + winFolder + " in the 'Exported_Sounds' and 'External_Sounds' folders.");
+        else
+            ScriptMessage("Sounds exported to " + winFolder + " in the 'Exported_Sounds' folder.");
+
+        void IncProgressLocal()
+        {
+            if (GetProgress() < maxCount)
+                IncrementProgress();
+        }
+
+        void MakeFolder(string folderName)
+        {
+            string fullPath = Path.Combine(winFolder, folderName);
+            Directory.CreateDirectory(fullPath);
+        }
+
+        IList<UndertaleEmbeddedAudio> GetAudioGroupData(UndertaleSound sound)
+        {
+            string audioGroupName = sound.AudioGroup is not null ? sound.AudioGroup.Name.Content : DEFAULT_AUDIOGROUP_NAME;
+            if (loadedAudioGroups.ContainsKey(audioGroupName))
+                return loadedAudioGroups[audioGroupName];
+
+            string groupFilePath = Path.Combine(winFolder, "audiogroup" + sound.GroupID + ".dat");
+            if (!File.Exists(groupFilePath))
+                return null;
+
+            try
+            {
+                UndertaleData data;
+                using (var stream = new FileStream(groupFilePath, FileMode.Open, FileAccess.Read))
+                    data = UndertaleIO.Read(stream, warning => ScriptMessage("A warning occurred while trying to load " + audioGroupName + ":\n" + warning));
+
+                loadedAudioGroups[audioGroupName] = data.EmbeddedAudio;
+                return data.EmbeddedAudio;
+            }
+            catch (Exception e)
+            {
+                ScriptMessage("An error occurred while trying to load " + audioGroupName + ":\n" + e.Message);
+                return null;
+            }
+        }
+
+        byte[] GetSoundData(UndertaleSound sound)
+        {
+            if (sound.AudioFile is not null)
+                return sound.AudioFile.Data;
+
+            if (sound.GroupID > Data.GetBuiltinSoundGroupID())
+            {
+                IList<UndertaleEmbeddedAudio> audioGroup = GetAudioGroupData(sound);
+                if (audioGroup is not null)
+                    return audioGroup[sound.AudioID].Data;
+            }
+            return EMPTY_WAV_FILE_BYTES;
+        }
+
+        void DumpSounds()
+        {
+            foreach (UndertaleSound sound in Data.Sounds)
+            {
+                if (sound is not null)
+                {
+                    DumpSound(sound);
+                }
+                else
+                {
+                    IncProgressLocal();
+                }
+            }
+        }
+
+        void DumpSound(UndertaleSound sound)
+        {
+            string soundName = sound.Name.Content;
+            bool flagCompressed = sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsCompressed);
+            bool flagEmbedded = sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsEmbedded);
+            string audioExt = flagEmbedded && !flagCompressed ? ".wav" : ".ogg";
+
+            string soundFilePath = groupedExport ? Path.Combine(exportedSoundsDir, sound.AudioGroup.Name.Content, soundName) : Path.Combine(exportedSoundsDir, soundName);
+
+            MakeFolder("Exported_Sounds");
+            if (groupedExport)
+                MakeFolder(Path.Combine("Exported_Sounds", sound.AudioGroup.Name.Content));
+
+            if (!File.Exists(soundFilePath + audioExt))
+                File.WriteAllBytes(soundFilePath + audioExt, GetSoundData(sound));
+
+            IncProgressLocal();
         }
 
     }
