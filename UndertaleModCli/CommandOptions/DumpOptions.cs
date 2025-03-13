@@ -40,4 +40,6 @@ public class DumpOptions
     public bool Sprites { get; set; }
 
     public bool Sounds { get; set; }
+
+    public string[] FontData { get; set; }
 }
