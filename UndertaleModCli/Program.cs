@@ -730,6 +730,7 @@ public partial class Program : IScriptInterface
 
     private void DumpLang()
     {
+        bool Exportrepeatedly = ScriptQuestion("Dump repeated strings?");
         string extractedStrings = "{";
         string[] codeArray = Data.Code.Select(c => c.Name.Content).ToArray();
         UndertaleCode codo = Data.Code.ByName(codeArray[0]);
@@ -743,13 +744,15 @@ public partial class Program : IScriptInterface
             for (int i = 0; i < matches.Count; i++)
             {
                 Match match = matches[i];
-                extractedStrings += $"\n  \"{codo.Name.ToString().Replace("\"", "")}_{i}\": {match.Groups[0].Value},";
+                if ((!extractedStrings.Contains(match.Groups[0].Value)) || (Exportrepeatedly))
+                    extractedStrings += $"\n\t\"{codo.Name.ToString().Replace("\"", "")}_{i}\": {match.Groups[0].Value},";
             }
         }
         extractedStrings += "\n}";
         extractedStrings = extractedStrings.Replace("\",\n}", "\"\n}");
-        File.WriteAllText(Environment.CurrentDirectory + "\\exported_lang.json", extractedStrings);
-        ScriptMessage("Lang created sucessfully");
+        string exo = Exportrepeatedly ?  "repeated_strings" : "non_repeated_strings";
+        File.WriteAllText(Environment.CurrentDirectory + $"\\exported_lang_{exo}.json", extractedStrings);
+        ScriptMessage($"\nLang file created sucessfully.\n\nLocation: {Environment.CurrentDirectory + $"\\exported_lang_{exo}.json"}");
     }
 
     /// <summary>
