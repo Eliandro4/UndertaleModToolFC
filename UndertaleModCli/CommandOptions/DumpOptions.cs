@@ -42,4 +42,6 @@ public class DumpOptions
     public bool Sounds { get; set; }
 
     public string[] FontData { get; set; }
+
+    public bool ASM { get; set; }
 }
