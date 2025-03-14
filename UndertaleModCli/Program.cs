@@ -20,6 +20,7 @@ using UndertaleModLib.Models;
 using Newtonsoft.Json;
 using UndertaleModLib.Compiler;
 using UndertaleModLib.Decompiler;
+using System.Text.Json;
 
 namespace UndertaleModCli;
 
@@ -153,9 +154,10 @@ public partial class Program : IScriptInterface
             new Option<FileInfo>(new[] { "-o", "--output" }, "Where to save the modified data file"),
             new Option<string[]>(new[] { "-c", "--code" },
                 $"Which code files to replace with which file. Ex. 'gml_Script_init_map=./newCode.gml'. It is possible to replace everything by using '{UMT_REPLACE_ALL}'"),
+            new Option<string>(new[] { "-s", "--strings" }, "Import a string.txt. Ex. './strings.txt'"),
+            new Option<bool>(new[] { "-sb", "--strings_better" }, "Import a strings_better.json. Ex. './strings.txt'"),
             new Option<string[]>(new[] { "-t", "--textures" },
                 $"Which embedded texture entry to replace with which file. Ex. 'Texture 0=./newTexture.png'. It is possible to replace everything by using '{UMT_REPLACE_ALL}'"),
-            new Option<string>(new[] { "-s", "--strings" }, "Import a string.txt. Ex. './strings.txt'"),
         };
         replaceCommand.Handler = CommandHandler.Create<ReplaceOptions>(Program.Replace);
 
@@ -486,6 +488,9 @@ public partial class Program : IScriptInterface
 
         if (options.Strings != null)
             program.ReplaceStrings(options.Strings);
+
+        if (options.Strings_Better)
+            program.ReplaceStringsBetter();
 
         // if parameter to save file was given, save the data file
         if (options.Output != null)
@@ -1231,6 +1236,26 @@ Note: If an error window stating that 'the directory is not empty' appears, plea
             Console.WriteLine("Replacing " + textureEntry);
 
         texture.TextureData.Image = GMImage.FromPng(File.ReadAllBytes(fileToReplace.FullName));
+    }
+
+    private void ReplaceStringsBetter()
+    {
+        string path;
+        do
+        {
+            Console.Write("Please type a path (or drag and drop) to a valid file:\nPath: ");
+            path = RemoveQuotes(Console.ReadLine());
+        } while (!File.Exists(path));
+
+        //string path = PromptChooseDirectory();
+        
+        string file = File.ReadAllText(path);
+        JsonElement json = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(file);
+        JsonElement.ArrayEnumerator array = json.GetProperty("Strings").EnumerateArray();
+        int i = 0;
+        foreach (JsonElement elmnt in array)
+            Data.Strings[i++].Content = elmnt.ToString();
+        ScriptMessage("Successfully imported");
     }
 
     private void ReplaceStrings(string stringsPath)
