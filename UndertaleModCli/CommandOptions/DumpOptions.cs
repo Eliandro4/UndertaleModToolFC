@@ -34,6 +34,8 @@ public class DumpOptions
 
     public bool Strings_Better { get; set; }
 
+	public bool Lang { get; set; }
+
     /// <summary>
     /// Determines if embedded textures should get dumped
     /// </summary>

@@ -21,6 +21,7 @@ using Newtonsoft.Json;
 using UndertaleModLib.Compiler;
 using UndertaleModLib.Decompiler;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace UndertaleModCli;
 
@@ -138,6 +139,7 @@ public partial class Program : IScriptInterface
                 $"The code files to dump. Ex. gml_Script_init_map gml_Script_reset_map. Specify '{UMT_DUMP_ALL}' to dump all code entries"),
             new Option<bool>(new[] { "-s", "--strings" }, "Whether to dump all strings"),
             new Option<bool>(new[] { "-sb", "--strings_better" }, "Dump all the strings to a json file"),
+            new Option<bool>(new[] { "-l", "--lang" }, "Dump all the strings in code to a lang file"),
             new Option<bool>(new[] { "-t", "--textures" }, "Whether to dump all embedded textures"),
             new Option<bool>(new[] { "-i", "--images" }, "Whether to dump all images/sprites"),
             new Option<bool>(new[] { "-sfx", "--sounds"}, "Whether to dump all sounds"),
@@ -380,6 +382,9 @@ public partial class Program : IScriptInterface
 
         if (options.Strings_Better)
             program.DumpAllStringsBetter();
+
+        if (options.Lang)
+            program.DumpLang();
 
         // If user wanted to dump embedded textures, dump all of them
         if (options.Textures)
@@ -721,6 +726,30 @@ public partial class Program : IScriptInterface
             }
             return "\"" + sb.ToString() + "\"";
         }
+    }
+
+    private void DumpLang()
+    {
+        string extractedStrings = "{";
+        string[] codeArray = Data.Code.Select(c => c.Name.Content).ToArray();
+        UndertaleCode codo = Data.Code.ByName(codeArray[0]);
+        string corio;
+        Regex regex = new Regex("\"([^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"");
+        foreach (string code in codeArray)
+        {
+            codo = Data.Code.ByName(code);
+            corio = GetDecompiledText(codo);
+            MatchCollection matches = regex.Matches(corio);
+            for (int i = 0; i < matches.Count; i++)
+            {
+                Match match = matches[i];
+                extractedStrings += $"\n  \"{codo.Name.ToString().Replace("\"", "")}_{i}\": {match.Groups[0].Value},";
+            }
+        }
+        extractedStrings += "\n}";
+        extractedStrings = extractedStrings.Replace("\",\n}", "\"\n}");
+        File.WriteAllText(Environment.CurrentDirectory + "\\exported_lang.json", extractedStrings);
+        ScriptMessage("Lang created sucessfully");
     }
 
     /// <summary>
