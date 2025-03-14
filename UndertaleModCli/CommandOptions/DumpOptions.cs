@@ -32,10 +32,12 @@ public class DumpOptions
 	/// </summary>
 	public bool Strings { get; set; }
 
-	/// <summary>
-	/// Determines if embedded textures should get dumped
-	/// </summary>
-	public bool Textures { get; set; }
+    public bool Strings_Better { get; set; }
+
+    /// <summary>
+    /// Determines if embedded textures should get dumped
+    /// </summary>
+    public bool Textures { get; set; }
 
     public bool Sprites { get; set; }
 

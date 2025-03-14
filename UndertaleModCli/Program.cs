@@ -136,9 +136,10 @@ public partial class Program : IScriptInterface
             new Option<string[]>(new[] { "-c", "--code" },
                 $"The code files to dump. Ex. gml_Script_init_map gml_Script_reset_map. Specify '{UMT_DUMP_ALL}' to dump all code entries"),
             new Option<bool>(new[] { "-s", "--strings" }, "Whether to dump all strings"),
+            new Option<bool>(new[] { "-sb", "--strings_better" }, "Dump all the strings to a json file"),
             new Option<bool>(new[] { "-t", "--textures" }, "Whether to dump all embedded textures"),
-            new Option<bool>(new[] { "-i", "--sprites" }, "Whether to dump all sprites"),
-            new Option<bool>(new[] { "-m", "--sounds"}, "Whether to dump all sounds"),
+            new Option<bool>(new[] { "-i", "--images" }, "Whether to dump all images/sprites"),
+            new Option<bool>(new[] { "-sfx", "--sounds"}, "Whether to dump all sounds"),
             new Option<string[]>(new[] { "-f", "--fontdata"}, $"Whether to dump fontdata. Specify '{UMT_DUMP_ALL}' to dump all fontdata. Use '-list' after '-f' to list the fontdata"),
             new Option<bool>(new[] {"-a", "--assembly"}, "Whether to dump all scripts in assembly")
         };
@@ -375,6 +376,9 @@ public partial class Program : IScriptInterface
         if (options.Strings)
             program.DumpAllStrings();
 
+        if (options.Strings_Better)
+            program.DumpAllStringsBetter();
+
         // If user wanted to dump embedded textures, dump all of them
         if (options.Textures)
             program.DumpAllTextures();
@@ -389,8 +393,9 @@ public partial class Program : IScriptInterface
             program.DumpFontData(options.FontData);
 
         if (options.ASM)
-            Console.WriteLine("");
+        {
             program.DumpAllAssembly();
+        }
 
         return EXIT_SUCCESS;
     }
@@ -668,6 +673,49 @@ public partial class Program : IScriptInterface
         if (Verbose)
             Console.WriteLine("Writing all strings to disk");
         File.WriteAllText($"{directory}/strings.txt", combinedText.ToString());
+    }
+
+    private void DumpAllStringsBetter()
+    {
+        string directory = Output.FullName;
+
+        StringBuilder json = new StringBuilder("{\r\n    \"Strings\": [\r\n");
+        const string
+            prefix = "        ",
+            suffix = ",\r\n";
+        foreach (string str in Data.Strings.Select(str => str.Content))
+            json.Append(
+                prefix
+                + JsonifyString(str)
+                + suffix);
+        json.Length -= suffix.Length;
+        json.Append("\r\n    ]\r\n}");
+
+        File.WriteAllText(Output.FullName + "\\strings_better.json", json.ToString());
+        ScriptMessage($"Successfully exported to\n{Output.FullName}" + "\\strings_better.json");
+
+        static string JsonifyString(string str)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (char ch in str)
+            {    // Characters that JSON requires escaping
+                if (ch == '\"') { sb.Append("\\\""); continue; }
+                if (ch == '\\') { sb.Append("\\\\"); continue; }
+                if (ch == '\b') { sb.Append("\\b"); continue; }
+                if (ch == '\f') { sb.Append("\\f"); continue; }
+                if (ch == '\n') { sb.Append("\\n"); continue; }
+                if (ch == '\r') { sb.Append("\\r"); continue; }
+                if (ch == '\t') { sb.Append("\\t"); continue; }
+                if (Char.IsControl(ch))
+                {
+                    sb.Append("\\u" + Convert.ToByte(ch).ToString("x4"));
+                    continue;
+                }
+
+                sb.Append(ch);
+            }
+            return "\"" + sb.ToString() + "\"";
+        }
     }
 
     /// <summary>
