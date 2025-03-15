@@ -158,6 +158,7 @@ public partial class Program : IScriptInterface
                 $"Which code files to replace with which file. Ex. 'gml_Script_init_map=./newCode.gml'. It is possible to replace everything by using '{UMT_REPLACE_ALL}'"),
             new Option<string>(new[] { "-s", "--strings" }, "Import a string.txt. Ex. './strings.txt'"),
             new Option<bool>(new[] { "-sb", "--strings_better" }, "Import a strings_better.json. Ex. './strings.txt'"),
+            new Option<bool>(new[] { "-l", "--lang" }, "replace the games strings with a lang file"),
             new Option<string[]>(new[] { "-t", "--textures" },
                 $"Which embedded texture entry to replace with which file. Ex. 'Texture 0=./newTexture.png'. It is possible to replace everything by using '{UMT_REPLACE_ALL}'"),
         };
@@ -497,6 +498,9 @@ public partial class Program : IScriptInterface
         if (options.Strings_Better)
             program.ReplaceStringsBetter();
 
+        if (options.Lang)
+            program.ReplaceLang();
+
         // if parameter to save file was given, save the data file
         if (options.Output != null)
             program.SaveDataFile(options.Output.FullName);
@@ -754,6 +758,56 @@ public partial class Program : IScriptInterface
         string exo = Exportrepeatedly ?  "repeated_strings" : "non_repeated_strings";
         File.WriteAllText(Environment.CurrentDirectory + $"\\exported_lang_{exo}.json", extractedStrings);
         ScriptMessage($"\nLang file created sucessfully.\n\nLocation: {Environment.CurrentDirectory + $"\\exported_lang_{exo}.json"}");
+    }
+
+    private void ReplaceLang()
+    {
+        Regex script_names = new Regex(@"""([^""]+)_\d+"":");
+        Regex lang_strings = new Regex(@": \s*""([^""\\]*(\\.[^""\\]*)*)""");
+        Regex strings_id = new Regex(@"_(\d+)""\s*:");
+        Regex script_strings = new Regex("\"([^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"");
+        List<string> arustringos = Data.Strings.Where(f => f is not null).Select(f => f.ToString().Replace("\"", "")).ToList();
+        /*
+        foreach (string smt in arustringos)
+        {
+            Console.WriteLine(smt);
+        }
+        */
+        string[] lines = File.ReadAllLines(Environment.CurrentDirectory + "\\exported_lang_non_repeated_strings.json");
+        foreach (string line in lines)
+        {
+            Match scripto_namos = script_names.Match(line);
+            Match strings_langos = lang_strings.Match(line);
+            Match stringos_id = strings_id.Match(line);
+            if (scripto_namos.Groups[1].Value != "")
+            {
+                UndertaleCode codo = Data.Code.ByName(scripto_namos.Groups[1].Value);
+                //Console.WriteLine(scripto_namos.Groups[1].Value);
+                string corio = GetDecompiledText(codo);
+                MatchCollection scripts_stringos = script_strings.Matches(corio);
+                for (int i = 0; i < scripts_stringos.Count; i++)
+                {
+                    //Console.WriteLine(stringos_id.Groups[1].Value + " " + i);
+                    if (stringos_id.Groups[1].Value == $"{i}")
+                    {
+                        Console.WriteLine("EQUALIDADE");
+                        int aoi = 0;
+                        foreach (string something in arustringos)
+                        {
+                            if (scripts_stringos[i].Groups[1].Value == something)
+                            {
+                                Console.WriteLine($"{scripts_stringos[i].Groups[1].Value} : {something} : {strings_langos.Groups[1].Value}");
+                                Data.Strings[aoi].Content = strings_langos.Groups[1].Value;
+                                Console.WriteLine("String Subtituida");
+                                break;
+                            }
+                            aoi++;
+                        }
+                    }
+                    //Console.WriteLine(i + ": " + scripts_stringos[i]);
+                }
+            }
+        }
     }
 
     /// <summary>
