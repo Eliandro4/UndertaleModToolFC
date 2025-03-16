@@ -31,7 +31,7 @@ public class ReplaceOptions
 
     public bool Strings_Better { get; set; }
 
-    public bool Lang { get; set; }
+    public string Lang { get; set; }
 
     /// <summary>
     /// Equal separated values of embedded texture and the file to replace the embedded texture with.

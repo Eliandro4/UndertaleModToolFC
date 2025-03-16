@@ -158,7 +158,7 @@ public partial class Program : IScriptInterface
                 $"Which code files to replace with which file. Ex. 'gml_Script_init_map=./newCode.gml'. It is possible to replace everything by using '{UMT_REPLACE_ALL}'"),
             new Option<string>(new[] { "-s", "--strings" }, "Import a string.txt. Ex. './strings.txt'"),
             new Option<bool>(new[] { "-sb", "--strings_better" }, "Import a strings_better.json. Ex. './strings.txt'"),
-            new Option<bool>(new[] { "-l", "--lang" }, "replace the games strings with a lang file"),
+            new Option<string>(new[] { "-l", "--lang" }, "replace the games strings with a lang file"),
             new Option<string[]>(new[] { "-t", "--textures" },
                 $"Which embedded texture entry to replace with which file. Ex. 'Texture 0=./newTexture.png'. It is possible to replace everything by using '{UMT_REPLACE_ALL}'"),
         };
@@ -498,8 +498,8 @@ public partial class Program : IScriptInterface
         if (options.Strings_Better)
             program.ReplaceStringsBetter();
 
-        if (options.Lang)
-            program.ReplaceLang();
+        if (options.Lang != null)
+            program.ReplaceLang(options.Lang);
 
         // if parameter to save file was given, save the data file
         if (options.Output != null)
@@ -760,20 +760,72 @@ public partial class Program : IScriptInterface
         ScriptMessage($"\nLang file created sucessfully.\n\nLocation: {Environment.CurrentDirectory + $"\\exported_lang_{exo}.json"}");
     }
 
-    private void ReplaceLang()
+    private void ReplaceLang(string path)
+    {
+        bool neru = ScriptQuestion("Use the new version?");
+        if (neru)
+            ReplaceLangNew(path);
+        else
+            ReplaceLangOld(path);
+    }
+
+    private void ReplaceLangNew(string path)
+    {
+        string InternalStringIds = String.Empty;
+        string InternalextractedStrings = String.Empty;
+        string[] codeArray = Data.Code.Select(c => c.Name.Content).ToArray();
+        UndertaleCode codo = Data.Code.ByName(codeArray[0]);
+        string corio;
+        Regex regex = new Regex("\"([^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"");
+        Regex StringsIdRegex = new Regex(@"""([^""]*)"":");
+        Regex LangsStringsRegex = new Regex(@": ""((?:[^""\\]|\\.)*)""");
+        foreach (string code in codeArray)
+        {
+            codo = Data.Code.ByName(code);
+            corio = GetDecompiledText(codo);
+            MatchCollection matches = regex.Matches(corio);
+            for (int i = 0; i < matches.Count; i++)
+            {
+                Match match = matches[i];
+                string val = match.Groups[1].Value;
+                if ((!InternalextractedStrings.Contains(val)) && (!val.Contains("gml_GlobalScript")) && (!val.Contains("rm_")) && (!val.Contains("obj_")) && (!val.Contains("bg_")) && (!val.Contains("spr_")) && (!val.Contains("_sound")))
+                {
+                    InternalextractedStrings += $"\n{val}";
+                    InternalStringIds += $"\n{codo.Name.ToString().Replace("\"", "")}_{i}";
+                }
+            }
+        }
+        List<string> InternalStringsIdsList = InternalStringIds.Split("\n").ToList();
+        InternalStringIds = null;
+        List<string> InternalextractedStringsList = InternalextractedStrings.Split("\n").ToList();
+        InternalextractedStrings = null;
+        string[] lines = File.ReadAllLines(path);
+        foreach (string line in lines)
+        {
+            Match match_ids = StringsIdRegex.Match(line);
+            Match match_strings = LangsStringsRegex.Match(line);
+            //Console.WriteLine(match_ids.Groups[1].Value);
+            if ((match_ids.Groups[1].Value != null) && (match_ids.Groups[1].Value != String.Empty) && (match_ids.Groups[1].Value != ""))
+            {
+                int i = InternalStringsIdsList.IndexOf(match_ids.Groups[1].Value);
+                //Console.WriteLine(i);
+                if (InternalextractedStringsList[i] != match_strings.Groups[1].Value)
+                {
+                    Data.Strings[Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == InternalextractedStringsList[i]))].Content = new(match_strings.Groups[1].Value);
+                }
+            }
+        }
+        ScriptMessage("Lang imported succesfully");
+    }
+
+    private void ReplaceLangOld(string path)
     {
         Regex script_names = new Regex(@"""([^""]+)_\d+"":");
         Regex lang_strings = new Regex(@": \s*""([^""\\]*(\\.[^""\\]*)*)""");
         Regex strings_id = new Regex(@"_(\d+)""\s*:");
         Regex script_strings = new Regex("\"([^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"");
         List<string> arustringos = Data.Strings.Where(f => f is not null).Select(f => f.ToString().Replace("\"", "")).ToList();
-        /*
-        foreach (string smt in arustringos)
-        {
-            Console.WriteLine(smt);
-        }
-        */
-        string[] lines = File.ReadAllLines(Environment.CurrentDirectory + "\\exported_lang_non_repeated_strings.json");
+        string[] lines = File.ReadAllLines(path);
         foreach (string line in lines)
         {
             Match scripto_namos = script_names.Match(line);
@@ -800,7 +852,7 @@ public partial class Program : IScriptInterface
                                 {
                                     //Console.WriteLine($"{scripts_stringos[i].Groups[1].Value} : {something} : {strings_langos.Groups[1].Value}");
                                     Data.Strings[aoi].Content = strings_langos.Groups[1].Value;
-                                    Console.WriteLine("String Subtituida");
+                                    //Console.WriteLine("String Subtituida");
                                 }
                                 //Console.WriteLine($"{scripts_stringos[i].Groups[1].Value} : {strings_langos.Groups[1].Value}");
                                 break;
@@ -812,6 +864,7 @@ public partial class Program : IScriptInterface
                 }
             }
         }
+        ScriptMessage("Lang imported succesfully");
     }
 
     /// <summary>
