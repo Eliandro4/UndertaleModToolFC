@@ -6,6 +6,7 @@ using Underanalyzer.Compiler.Bytecode;
 using Underanalyzer.Compiler.Errors;
 using UndertaleModLib.Decompiler;
 using UndertaleModLib.Models;
+using UndertaleModLib.Util;
 
 namespace UndertaleModLib.Compiler;
 
@@ -43,6 +44,11 @@ public sealed class CompileGroup
     /// Hash code of the name of the current code entry being compiled.
     /// </summary>
     internal int CurrentCodeEntryNameHash { get; private set; }
+
+    /// <summary>
+    /// During main compile (not linking), this is the next try variable index that should be used.
+    /// </summary>
+    internal int NextTryVariableIndex { get; set; } = 0;
 
     /// <summary>
     /// Stores a code entry and corresponding GML code to be compiled during an operation.
@@ -84,7 +90,7 @@ public sealed class CompileGroup
     private List<(string Name, bool IsEverLocal)> _linkingVariableOrder = null;
 
     // During linking, a lookup of local variable names to references of those local variables.
-    private Dictionary<string, List<UndertaleInstruction.Reference<UndertaleVariable>>> _linkingLocalReferences = null;
+    private Dictionary<string, List<UndertaleInstruction>> _linkingLocalReferences = null;
 
     // During main compile (not linking), and when array copy-on-write is enabled, this is a lookup of name to ID.
     private int _nextNameId = 100000;
@@ -181,10 +187,10 @@ public sealed class CompileGroup
     /// <summary>
     /// Registers a local variable during linking, queuing the reference to be patched later.
     /// </summary>
-    internal void RegisterLocalVariable(UndertaleInstruction.Reference<UndertaleVariable> reference, string name)
+    internal void RegisterLocalVariable(UndertaleInstruction reference, string name)
     {
         // Queue reference to be patched later
-        if (!_linkingLocalReferences.TryGetValue(name, out List<UndertaleInstruction.Reference<UndertaleVariable>> referenceList))
+        if (!_linkingLocalReferences.TryGetValue(name, out List<UndertaleInstruction> referenceList))
         {
             referenceList = new(16);
             _linkingLocalReferences[name] = referenceList;
@@ -380,12 +386,17 @@ public sealed class CompileGroup
             // Guess script kind and global script name, based on code entry name
             (CompileScriptKind scriptKind, string globalScriptName) = GuessScriptKindFromName(operation.CodeEntry.Name?.Content);
 
-            // Prepare for array copy-on-write
-            CurrentCodeEntryNameHash = operation.CodeEntry.Name.Content.GetHashCode();
-            if (Data.ArrayCopyOnWrite)
+            // Prepare data for main compile
+            CurrentCodeEntryNameHash = (int)MurmurHash.Hash(operation.CodeEntry.Name.Content);
+            if (linkingModern)
             {
-                _parsedNameIds = new();
-                _nextNameId = 100000;
+                NextTryVariableIndex = Math.Max(0, operation.CodeEntry.FindFirstTryLocalIndex());
+
+                if (Data.ArrayCopyOnWrite)
+                {
+                    _parsedNameIds = new();
+                    _nextNameId = 100000;
+                }
             }
 
             // Perform initial compile step
@@ -739,9 +750,9 @@ public sealed class CompileGroup
                             variable ??= Data.Variables.DefineLocal(Data, varId, localString, nameStringIndex);
 
                             // Update all references
-                            foreach (UndertaleInstruction.Reference<UndertaleVariable> reference in _linkingLocalReferences[name])
+                            foreach (UndertaleInstruction reference in _linkingLocalReferences[name])
                             {
-                                reference.Target = variable;
+                                reference.ValueVariable = variable;
                             }
                         }
                     }

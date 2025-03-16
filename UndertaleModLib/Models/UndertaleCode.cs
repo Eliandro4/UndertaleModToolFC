@@ -2,10 +2,8 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Text;
 using Underanalyzer;
-using UndertaleModLib.Compiler;
 using UndertaleModLib.Decompiler;
 using UndertaleModLib.Util;
 
@@ -248,7 +246,6 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
         GT = 6,
     }
 
-    public uint Address { get; internal set; }
     public Opcode Kind 
     { 
         get => (Opcode)(_firstWord >> 24); 
@@ -274,9 +271,27 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
         get => (InstanceType)(_firstWord & 0x0000FFFF);
         set => _firstWord = (_firstWord & 0xFFFF0000) | ((uint)value & 0xFFFF);
     }
-    public object Value { get; set; }
-    public Reference<UndertaleVariable> Destination { get; set; }
-    public Reference<UndertaleFunction> Function { get; set; }
+    public short ValueShort 
+    { 
+        get => (short)(_firstWord & 0x0000FFFF); 
+        set => _firstWord = (_firstWord & 0xFFFF0000) | ((uint)value & 0xFFFF);
+    }
+    public int ValueInt { get => _primitiveValue.AsInt; set => _primitiveValue = new(value); }
+    public long ValueLong { get => _primitiveValue.AsLong; set => _primitiveValue = new(value); }
+    public double ValueDouble { get => _primitiveValue.AsDouble; set => _primitiveValue = new(value); }
+    public UndertaleResourceById<UndertaleString, UndertaleChunkSTRG> ValueString { get => _objectValue as UndertaleResourceById<UndertaleString, UndertaleChunkSTRG>; set => _objectValue = value; }
+    public UndertaleVariable ValueVariable { get => _objectValue as UndertaleVariable; set => _objectValue = value; }
+    public UndertaleFunction ValueFunction { get => _objectValue as UndertaleFunction; set => _objectValue = value; }
+    internal uint ReferenceNextOccurrenceOffset
+    {
+        get => (uint)(_primitiveValue.AsInt & 0x07FFFFFF); 
+        set => _primitiveValue = new((_primitiveValue.AsInt & ~0x07FFFFFF) | (int)(value & 0x07FFFFFF));
+    }
+    public VariableType ReferenceType 
+    { 
+        get => (VariableType)((_primitiveValue.AsInt >> 24) & 0xF8); 
+        set => _primitiveValue = new((_primitiveValue.AsInt & 0x07FFFFFF) | (((int)value & 0xF8) << 24));
+    }
     public int JumpOffset
     {
         get
@@ -321,168 +336,118 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
         get => (short)(_firstWord & 0x0000FFFF);
         set => _firstWord = (_firstWord & 0xFFFF0000) | (ushort)value;
     }
-    public int IntArgument { get => _integerArgument; set => _integerArgument = value; }
+    public int IntArgument { get => _primitiveValue.AsInt; set => _primitiveValue = new(value); }
 
     private uint _firstWord;
-    private int _integerArgument;
+    private InstructionPrimitiveType _primitiveValue;
+    private object _objectValue;
 
-    public interface ReferencedObject
+    /// <summary>
+    /// Objects (functions and variables) that can be referenced as part of a reference chain, in instructions.
+    /// </summary>
+    public interface IReferencedObject
     {
         uint Occurrences { get; set; }
         UndertaleInstruction FirstAddress { get; set; }
         int NameStringID { get; set; }
     }
 
-    public class Reference<T> : UndertaleObject where T : class, UndertaleObject, ReferencedObject
+    /// <summary>
+    /// Parse a reference chain. This function assumes that all of the object data was read already, it only fills in ValueVariable/ValueFunction on instructions.
+    /// </summary>
+    internal static void ParseReferenceChain<T>(UndertaleReader reader, T obj) where T : class, UndertaleObject, IReferencedObject
     {
-        public uint NextOccurrenceOffset { get; set; } = 0xdead;
-        public VariableType Type { get; set; }
-        public T Target { get; set; }
-
-        public Reference()
+        if (reader.undertaleData.UnsupportedBytecodeVersion)
         {
+            return;
         }
-
-        public Reference(T target)
+        uint addr = reader.GetAddressForUndertaleObject(obj.FirstAddress);
+        UndertaleInstruction instr = null;
+        for (int i = 0; i < obj.Occurrences; i++)
         {
-            Target = target;
-        }
-
-        public Reference(T target, VariableType type)
-        {
-            Type = type;
-            Target = target;
-        }
-
-        public Reference(int int32Value)
-        {
-            NextOccurrenceOffset = (uint)int32Value & 0x07FFFFFF;
-            Type = (VariableType)((int32Value >> 24) & 0xF8);
-        }
-
-        /// <inheritdoc />
-        public void Serialize(UndertaleWriter writer)
-        {
-            NextOccurrenceOffset = 0xdead;
-            writer.Write((NextOccurrenceOffset & 0x07FFFFFF) | (((uint)Type & 0xF8) << 24));
-        }
-
-        /// <inheritdoc />
-        public void Unserialize(UndertaleReader reader)
-        {
-            int int32Value = reader.ReadInt32();
-            NextOccurrenceOffset = (uint)int32Value & 0x07FFFFFF;
-            Type = (VariableType)((int32Value >> 24) & 0xF8);
-        }
-
-        /// <inheritdoc />
-        public override string ToString()
-        {
-            if (typeof(T) == typeof(UndertaleVariable) && Type != VariableType.Normal)
+            instr = reader.GetUndertaleObjectAtAddress<UndertaleInstruction>(addr) ?? throw new IOException($"Failed to find instruction at {addr}");
+            if (typeof(T) == typeof(UndertaleVariable))
             {
-                return String.Format("[{0}]{1}{2}", Type.ToString().ToLower(CultureInfo.InvariantCulture), ((Target as UndertaleVariable)?.InstanceType.ToString().ToLower(CultureInfo.InvariantCulture) ?? "null") + ".", Target?.ToString() ?? "(null)");
+                instr.ValueVariable = obj as UndertaleVariable;
             }
-            else
-                return String.Format("{0}", Target?.ToString() ?? "(null)");
-        }
-
-        public static Dictionary<T, List<UndertaleInstruction>> CollectReferences(IList<UndertaleCode> codes)
-        {
-            Dictionary<T, List<UndertaleInstruction>> list = new Dictionary<T, List<UndertaleInstruction>>();
-            foreach (UndertaleCode code in codes)
+            if (typeof(T) == typeof(UndertaleFunction))
             {
-                if (code.ParentEntry != null) // GMS 2.3, skip inner entries
-                    continue;
-                foreach (UndertaleInstruction instr in code.Instructions)
-                {
-                    T obj = instr.GetReference<T>()?.Target;
-                    if (obj != null)
-                    {
-                        if (!list.ContainsKey(obj))
-                            list.Add(obj, new List<UndertaleInstruction>());
-                        list[obj].Add(instr);
-                    }
-                }
+                instr.ValueFunction = obj as UndertaleFunction;
             }
-            return list;
+            addr += instr.ReferenceNextOccurrenceOffset; // For relevant instructions, this is equivalent to IntArgument/ValueInt
         }
-
-        /// <summary>
-        ///  Serialize the reference chain. This functions assumes that the Reference objects have already been written to file (i.e. the CODE chunk was before FUNC/VARI,
-        ///  which is normally always the case)
-        /// </summary>
-        public static void SerializeReferenceChain(UndertaleWriter writer, IList<UndertaleCode> codeList, IList<T> varList)
-        {
-            Dictionary<T, List<UndertaleInstruction>> references = CollectReferences(codeList);
-            uint pos = writer.Position;
-            foreach (T var in varList)
-            {
-                var.Occurrences = references.ContainsKey(var) ? (uint)references[var].Count : 0;
-                if (var.Occurrences > 0)
-                {
-                    var.FirstAddress = references[var][0];
-                    for (int i = 0; i < references[var].Count; i++)
-                    {
-                        uint thisAddr = writer.GetAddressForUndertaleObject(references[var][i]);
-                        int addrDiff;
-                        if (i < references[var].Count - 1)
-                        {
-                            uint nextAddr = writer.GetAddressForUndertaleObject(references[var][i + 1]);
-                            addrDiff = (int)(nextAddr - thisAddr);
-                        }
-                        else
-                            addrDiff = var.NameStringID;
-                        Reference<T> thisRef = references[var][i].GetReference<T>();
-                        writer.Position = writer.GetAddressForUndertaleObject(thisRef);
-                        writer.Write((addrDiff & 0x07FFFFFF) | (((int)thisRef.Type & 0xF8) << 24));
-                    }
-                }
-                else
-                {
-                    var.FirstAddress = null;
-                }
-            }
-            writer.Position = pos;
-        }
-
-        /// <summary>
-        ///  Parse the reference chain. This function assumes that all of the object data was read already, it only fills in the "Target" field of Reference objects
-        /// </summary>
-        public static void ParseReferenceChain(UndertaleReader reader, T obj)
-        {
-            if (reader.undertaleData.UnsupportedBytecodeVersion)
-                return;
-            Reference<T> reference = null;
-            uint addr = reader.GetAddressForUndertaleObject(obj.FirstAddress);
-            for (int i = 0; i < obj.Occurrences; i++)
-            {
-                reference = reader.GetUndertaleObjectAtAddress<UndertaleInstruction>(addr).GetReference<T>(true);
-                if (reference == null)
-                    throw new IOException("Failed to find reference at " + addr);
-                reference.Target = obj;
-                addr += (uint)reference.NextOccurrenceOffset;
-            }
-            obj.NameStringID = (int)reference.NextOccurrenceOffset;
-        }
+        obj.NameStringID = (int)instr.ReferenceNextOccurrenceOffset;
     }
 
-    public Reference<T> GetReference<T>(bool allowResolve = false) where T : class, UndertaleObject, ReferencedObject
+    /// <summary>
+    /// Serializes a reference chain. 
+    /// This functions assumes that instructions have already been written to file (i.e. the CODE chunk was before FUNC/VARI, which is normally always the case).
+    /// </summary>
+    internal static void SerializeReferenceChain<T>(UndertaleWriter writer, IList<UndertaleCode> codeList, IList<T> objList) where T : class, UndertaleObject, IReferencedObject
     {
-        Reference<T> res = (Destination as Reference<T>) ?? (Function as Reference<T>) ?? (Value as Reference<T>);
-        if (allowResolve && res == null)
+        // Store initial position to return to later
+        uint initialPos = writer.Position;
+
+        // Initialize all objects with no occurrences, and no first address
+        foreach (T obj in objList)
         {
-            if (Kind == Opcode.Break && ExtendedKind == -11 /* pushref */)
+            obj.Occurrences = 0;
+            obj.FirstAddress = null;
+        }
+
+        // Scan over all code entries for references
+        Dictionary<T, long> lastReferencedAddressesAndTypes = new(objList.Count);
+        foreach (UndertaleCode code in codeList)
+        {
+            // Skip non-root code entries
+            if (code.ParentEntry is not null)
             {
-                Function = new Reference<UndertaleFunction>(IntArgument);
-                return Function as Reference<T>;
+                continue;
             }
-            if (Value is int val)
+
+            // Scan for references
+            foreach (UndertaleInstruction instr in code.Instructions)
             {
-                Value = new Reference<T>(val);
-                return (Reference<T>)Value;
+                T obj = null;
+                if (typeof(T) == typeof(UndertaleVariable))
+                {
+                    obj = instr.ValueVariable as T;
+                }
+                if (typeof(T) == typeof(UndertaleFunction))
+                {
+                    obj = instr.ValueFunction as T;
+                }
+                if (obj is not null)
+                {
+                    // Get address of this instruction's reference
+                    uint thisAddress = writer.GetAddressForUndertaleObject(instr) + 4;
+
+                    // Check to see if we have a previous occurrence to update
+                    if (lastReferencedAddressesAndTypes.TryGetValue(obj, out long lastAddressAndType))
+                    {
+                        // Not the first occurrence - update previous occurrence
+                        uint lastAddress = (uint)(lastAddressAndType & 0xFFFFFFFF);
+                        int lastType = (int)(lastAddressAndType >> 32);
+                        writer.Position = lastAddress;
+                        writer.Write(((int)(thisAddress - lastAddress) & 0x07FFFFFF) | ((lastType & 0xF8) << 24));
+                        obj.Occurrences++;
+
+                        // Update last address/type to be this one
+                        lastReferencedAddressesAndTypes[obj] = thisAddress | ((long)instr.ReferenceType << 32);
+                    }
+                    else
+                    {
+                        // First occurrence of the object
+                        lastReferencedAddressesAndTypes.Add(obj, thisAddress | ((long)instr.ReferenceType << 32));
+                        obj.FirstAddress = instr;
+                        obj.Occurrences++;
+                    }
+                }
             }
         }
-        return res;
+
+        // Restore original position
+        writer.Position = initialPos;
     }
 
     /// <inheritdoc />
@@ -562,66 +527,56 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
 
                 if (Type1 != DataType.Int16)
                 {
-                    // Write actual variable being stored to
-                    writer.WriteUndertaleObject(Destination);
+                    // Write actual variable being stored to (reset next occurrence to string ID for now)
+                    ReferenceNextOccurrenceOffset = (uint)ValueVariable.NameStringID;
+                    writer.Write(_primitiveValue.AsInt);
                 }
                 break;
             }
 
             case InstructionType.PushInstruction:
             {
-                // Write 16-bit integer, instance type, or empty data
-                writer.Write(Type1 switch
-                {
-                    DataType.Int16 => (short)Value,
-                    DataType.Variable => (short)TypeInst,
-                    _ => (short)0
-                });
-
-                // Write type (no second type is used)
-                writer.Write((byte)Type1);
-
-                // Write opcode (if writing bytecode 14, translate to the old opcode)
+                // Write first word, transforming opcode as needed for bytecode 14
+                uint firstWord = _firstWord;
                 if (bytecode14)
-                    writer.Write((byte)0xC0);
-                else
-                    writer.Write((byte)Kind);
+                {
+                    firstWord = (firstWord & 0xFFFFFF) | ((uint)ConvertNewKindToOldKind((byte)(firstWord >> 24)) << 24);
+                }
+                writer.Write(firstWord);
 
                 // Write value being pushed
                 switch (Type1)
                 {
                     case DataType.Double:
-                        writer.Write((double)Value);
-                        break;
-                    case DataType.Float:
-                        writer.Write((float)Value);
+                        writer.Write(ValueDouble);
                         break;
                     case DataType.Int32:
-                        if (Value.GetType() == typeof(Reference<UndertaleFunction>))
+                        // For functions/variables, reset next occurrence to string ID for now
+                        if (ValueFunction is UndertaleFunction function)
                         {
-                            // Write function reference, rather than integer
-                            writer.WriteUndertaleObject((Reference<UndertaleFunction>)Value);
+                            ReferenceNextOccurrenceOffset = (uint)function.NameStringID;
+                            writer.Write(_primitiveValue.AsInt);
                             break;
                         }
-                        if (Value.GetType() == typeof(Reference<UndertaleVariable>))
+                        if (ValueVariable is UndertaleVariable variable)
                         {
-                            // Write variable reference, rather than integer
-                            writer.WriteUndertaleObject((Reference<UndertaleVariable>)Value);
+                            ReferenceNextOccurrenceOffset = (uint)variable.NameStringID;
+                            writer.Write(_primitiveValue.AsInt);
                             break;
                         }
-                        writer.Write((int)Value);
+
+                        writer.Write(ValueInt);
                         break;
                     case DataType.Int64:
-                        writer.Write((long)Value);
-                        break;
-                    case DataType.Boolean:
-                        writer.Write((bool)Value ? 1 : 0);
+                        writer.Write(ValueLong);
                         break;
                     case DataType.Variable:
-                        writer.WriteUndertaleObject((Reference<UndertaleVariable>)Value);
+                        // Write variable (reset next occurrence to string ID for now)
+                        ReferenceNextOccurrenceOffset = (uint)ValueVariable.NameStringID;
+                        writer.Write(_primitiveValue.AsInt);
                         break;
                     case DataType.String:
-                        writer.WriteUndertaleObject((UndertaleResourceById<UndertaleString, UndertaleChunkSTRG>)Value);
+                        writer.WriteUndertaleObject(ValueString);
                         break;
                     case DataType.Int16:
                         // Data is encoded in the first two bytes of the instruction (was already written above)
@@ -641,9 +596,9 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
                 }
                 writer.Write(firstWord);
 
-                // Write reference to the function being called
-                writer.WriteUndertaleObject(Function);
-
+                // Write reference to the function being called (reset next occurrence to string ID for now)
+                ReferenceNextOccurrenceOffset = (uint)ValueFunction.NameStringID;
+                writer.Write(_primitiveValue.AsInt);
                 break;
             }
 
@@ -655,10 +610,16 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
                 // Write integer argument, or function, if either is present
                 if (Type1 == DataType.Int32)
                 {
-                    if (Function != null)
-                        writer.WriteUndertaleObject(Function);
+                    if (ValueFunction is not null)
+                    {
+                        // Write function (reset next occurrence to string ID for now)
+                        ReferenceNextOccurrenceOffset = (uint)ValueFunction.NameStringID;
+                        writer.Write(_primitiveValue.AsInt);
+                    }
                     else
+                    {
                         writer.Write(IntArgument);
+                    }
                 }
                 break;
             }
@@ -748,7 +709,7 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
                 if (type1 != DataType.Int16)
                 {
                     // Destination is an actual variable
-                    Destination = reader.ReadUndertaleObject<Reference<UndertaleVariable>>();
+                    _primitiveValue = new(reader.ReadInt32());
                 }
                 break;
             }
@@ -756,36 +717,28 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
             case InstructionType.PushInstruction:
             {
                 // Parse instruction components from bytes
-                short val = (short)(b0 | (b1 << 8));
                 DataType type1 = (DataType)b2;
 
                 // Parse data being pushed
                 switch (type1)
                 {
                     case DataType.Double:
-                        Value = reader.ReadDouble();
-                        break;
-                    case DataType.Float:
-                        Value = reader.ReadSingle();
+                        ValueDouble = reader.ReadDouble();
                         break;
                     case DataType.Int32:
-                        Value = reader.ReadInt32();
+                        ValueInt = reader.ReadInt32();
                         break;
                     case DataType.Int64:
-                        Value = reader.ReadInt64();
-                        break;
-                    case DataType.Boolean:
-                        Value = reader.ReadBoolean();
+                        ValueLong = reader.ReadInt64();
                         break;
                     case DataType.Variable:
-                        TypeInst = (InstanceType)val;
-                        Value = reader.ReadUndertaleObject<Reference<UndertaleVariable>>();
+                        _primitiveValue = new(reader.ReadInt32());
                         break;
                     case DataType.String:
-                        Value = reader.ReadUndertaleObject<UndertaleResourceById<UndertaleString, UndertaleChunkSTRG>>();
+                        ValueString = reader.ReadUndertaleObject<UndertaleResourceById<UndertaleString, UndertaleChunkSTRG>>();
                         break;
                     case DataType.Int16:
-                        Value = val;
+                        // Data is encoded in the first two bytes of the instruction (was already read above)
                         break;
                 }
 
@@ -795,8 +748,7 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
             case InstructionType.CallInstruction:
             {
                 // Parse function being called
-                Function = reader.ReadUndertaleObject<Reference<UndertaleFunction>>();
-
+                _primitiveValue = new(reader.ReadInt32());
                 break;
             }
 
@@ -882,7 +834,6 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
                 if (type1 != DataType.Int16)
                 {
                     reader.Position += 4;
-                    return 1; // "Destination"
                 }
                 break;
             }
@@ -898,13 +849,14 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
                         reader.Position += 8;
                         break;
 
-                    case DataType.Float:
                     case DataType.Int32:
-                    case DataType.Boolean:
                         reader.Position += 4;
                         break;
 
                     case DataType.Variable:
+                        reader.Position += 4;
+                        break;
+
                     case DataType.String:
                         reader.Position += 4;
                         return 1;
@@ -914,7 +866,7 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
 
             case InstructionType.CallInstruction:
                 reader.Position += 4;
-                return 1; // "Function"
+                break;
 
             case InstructionType.BreakInstruction:
             {
@@ -934,41 +886,59 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
         return 0;
     }
 
+    /// <summary>
+    /// Helper to print a variable reference to a StringBuilder.
+    /// </summary>
+    private void PrintVariableReference(ref StringBuilderHelper sbh, StringBuilder stringBuilder)
+    {
+        if (ReferenceType != VariableType.Normal)
+        {
+            sbh.Append(stringBuilder,
+                $"[{ReferenceType.ToVariableTypeParam()}]" +
+                $"{ValueVariable?.InstanceType.ToString().ToLower(CultureInfo.InvariantCulture) ?? "null"}." +
+                $"{ValueVariable?.ToString() ?? "(null)"}");
+        }
+        else
+        {
+            sbh.Append(stringBuilder, ValueVariable?.ToString() ?? "(null)");
+        }
+    }
+
     /// <inheritdoc />
     public override string ToString()
     {
-        return ToString(null);
+        return ToString(null, 0);
     }
-    
+
     /// <summary>
     /// <inheritdoc cref="ToString()"/>
     /// </summary>
-    /// <param name="code">The <see cref="UndertaleCode"/> code entry for which these instructions belong to.</param>
-    /// <param name="blocks">A list of block addresses for the code entry for which these instructions belong to.</param>
+    /// <param name="code">The <see cref="UndertaleCode"/> code entry for which the instruction belongs.</param>
+    /// <param name="address">Address of the instruction within its code entry.</param>
+    /// <param name="blocks">A list of block addresses for the code entry for which the instruction belongs.</param>
     /// <returns></returns>
-    public string ToString(UndertaleCode code, List<uint> blocks = null)
+    public string ToString(UndertaleCode code, uint address, List<uint> blocks = null)
     {
-        StringBuilder sb = new StringBuilder();
-        ToString(sb, code, blocks);
+        StringBuilder sb = new();
+        ToString(sb, code, address, blocks);
         return sb.ToString();
     }
-    
+
     /// <summary>
     /// Inserts a string representation of this object at a specified index in a <see cref="StringBuilder"/>.
     /// </summary>
     /// <param name="stringBuilder">The <see cref="StringBuilder"/> instance on where to insert the string representation.</param>
-    /// <param name="code"><inheritdoc cref="ToString(UndertaleCode, List{uint})"/></param>
-    /// <param name="blocks"><inheritdoc cref="ToString(UndertaleCode, List{uint})"/></param>
+    /// <param name="code"><inheritdoc cref="ToString(UndertaleCode, uint, List{uint})"/></param>
+    /// <param name="address">Address of the instruction within its code entry.</param>
+    /// <param name="blocks"><inheritdoc cref="ToString(UndertaleCode, uint, List{uint})"/></param>
     /// <param name="index">The index on where to insert the string representation. If this is <see langword="null"/>
     /// it will use <paramref name="stringBuilder.Length"/> as the index instead.</param>
     /// <remarks>Note that performance of this function can be drastically different, depending on <paramref name="index"/>.
     /// For best results, it's recommended to leave it at <see langword="null"/>.</remarks>
-    public void ToString(StringBuilder stringBuilder, UndertaleCode code, List<uint> blocks = null, int? index = null)
+    public void ToString(StringBuilder stringBuilder, UndertaleCode code, uint address, List<uint> blocks = null, int? index = null)
     {
-        if (index is null)
-            index = stringBuilder.Length;
-
-        StringBuilderHelper sbh = new StringBuilderHelper(index.Value);
+        index ??= stringBuilder.Length;
+        StringBuilderHelper sbh = new(index.Value);
         
         string kind = Kind.ToString();
         var type = GetInstructionType(Kind);
@@ -988,11 +958,12 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
 
         sbh.Append(stringBuilder, kind);
 
+        DataType type1 = Type1, type2 = Type2;
         switch (GetInstructionType(Kind))
         {
             case InstructionType.SingleTypeInstruction:
                 sbh.Append(stringBuilder, '.');
-                sbh.Append(stringBuilder, Type1.ToOpcodeParam());
+                sbh.Append(stringBuilder, type1.ToOpcodeParam());
 
                 if (Kind == Opcode.Dup || Kind == Opcode.CallV)
                 {
@@ -1012,16 +983,16 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
 
             case InstructionType.DoubleTypeInstruction:
                 sbh.Append(stringBuilder, '.');
-                sbh.Append(stringBuilder, Type1.ToOpcodeParam());
+                sbh.Append(stringBuilder, type1.ToOpcodeParam());
                 sbh.Append(stringBuilder, '.');
-                sbh.Append(stringBuilder, Type2.ToOpcodeParam());
+                sbh.Append(stringBuilder, type2.ToOpcodeParam());
                 break;
 
             case InstructionType.ComparisonInstruction:
                 sbh.Append(stringBuilder, '.');
-                sbh.Append(stringBuilder, Type1.ToOpcodeParam());
+                sbh.Append(stringBuilder, type1.ToOpcodeParam());
                 sbh.Append(stringBuilder, '.');
-                sbh.Append(stringBuilder, Type2.ToOpcodeParam());
+                sbh.Append(stringBuilder, type2.ToOpcodeParam());
                 sbh.Append(stringBuilder, ' ');
                 sbh.Append(stringBuilder, ComparisonKind.ToString());
                 break;
@@ -1029,33 +1000,33 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
             case InstructionType.GotoInstruction:
                 sbh.Append(stringBuilder, ' ');
                 string targetGoto;
-                if (code is not null && Address + JumpOffset == code.Length / 4)
+                if (code is not null && address + JumpOffset == code.Length / 4)
                     targetGoto = "[end]";
                 else if (JumpOffsetPopenvExitMagic)
                     targetGoto = "<drop>";
                 else if (blocks is not null)
-                    targetGoto = $"[{blocks.IndexOf((uint)(Address + JumpOffset))}]";
+                    targetGoto = $"[{blocks.IndexOf((uint)(address + JumpOffset))}]";
                 else
-                    targetGoto = (Address + JumpOffset).ToString("D5");
+                    targetGoto = (address + JumpOffset).ToString("D5");
                 sbh.Append(stringBuilder, targetGoto);
                 break;
 
             case InstructionType.PopInstruction:
                 sbh.Append(stringBuilder, '.');
-                sbh.Append(stringBuilder, Type1.ToOpcodeParam());
+                sbh.Append(stringBuilder, type1.ToOpcodeParam());
                 sbh.Append(stringBuilder, '.');
-                sbh.Append(stringBuilder, Type2.ToOpcodeParam());
+                sbh.Append(stringBuilder, type2.ToOpcodeParam());
                 sbh.Append(stringBuilder, ' ');
-                if (Type1 == DataType.Int16)
+                if (type1 == DataType.Int16)
                 {
                     // Special scenario - the swap instruction (see #129)
                     sbh.Append(stringBuilder, SwapExtra);
                 }
                 else
                 {
-                    if (Type1 == DataType.Variable && TypeInst != InstanceType.Undefined)
+                    if (type1 == DataType.Variable && TypeInst != InstanceType.Undefined)
                     {
-                        if (Destination.Type == VariableType.Instance)
+                        if (ReferenceType == VariableType.Instance)
                         {
                             // Syntax here is a bit ugly (but maintaining compatibility) - this is a room instance ID
                             sbh.Append(stringBuilder, (short)TypeInst);
@@ -1067,40 +1038,68 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
                         }
                         sbh.Append(stringBuilder, '.');
                     }
-                    sbh.Append(stringBuilder, Destination);
+                    PrintVariableReference(ref sbh, stringBuilder);
                 }
                 break;
 
             case InstructionType.PushInstruction:
                 sbh.Append(stringBuilder, '.');
-                sbh.Append(stringBuilder, Type1.ToOpcodeParam());
+                sbh.Append(stringBuilder, type1.ToOpcodeParam());
                 sbh.Append(stringBuilder, ' ');
-                if (Type1 == DataType.Variable && TypeInst != InstanceType.Undefined)
+                if (type1 == DataType.Variable)
                 {
-                    sbh.Append(stringBuilder, TypeInst.ToString().ToLower(CultureInfo.InvariantCulture));
-                    sbh.Append(stringBuilder, '.');
+                    if (TypeInst != InstanceType.Undefined)
+                    {
+                        sbh.Append(stringBuilder, TypeInst.ToString().ToLower(CultureInfo.InvariantCulture));
+                        sbh.Append(stringBuilder, '.');
+                    }
+                    PrintVariableReference(ref sbh, stringBuilder);
+                    break;
                 }
-                if (Type1 == DataType.Int32)
+                if (type1 == DataType.Int32)
                 {
-                    if (Value.GetType() == typeof(Reference<UndertaleFunction>))
+                    if (ValueFunction is UndertaleFunction function)
                     {
                         sbh.Append(stringBuilder, "[function]");
-                    }
-                    else if (Value.GetType() == typeof(Reference<UndertaleVariable>))
-                    {
-                        sbh.Append(stringBuilder, "[variable]");
-                        sbh.Append(stringBuilder, (Value as Reference<UndertaleVariable>).Target.Name?.Content ?? "<null>");
+                        sbh.Append(stringBuilder, function);
                         break;
                     }
+                    if (ValueVariable is UndertaleVariable variable)
+                    {
+                        sbh.Append(stringBuilder, "[variable]");
+                        sbh.Append(stringBuilder, variable.Name?.Content ?? "<null>");
+                        break;
+                    }
+                    sbh.Append(stringBuilder, ValueInt.ToString(null, CultureInfo.InvariantCulture));
+                    break;
                 }
-                sbh.Append(stringBuilder, (Value as IFormattable)?.ToString(null, CultureInfo.InvariantCulture) ?? Value.ToString());
+                if (type1 == DataType.String)
+                {
+                    sbh.Append(stringBuilder, ValueString);
+                    break;
+                }
+                if (type1 == DataType.Int16)
+                {
+                    sbh.Append(stringBuilder, ValueShort.ToString(null, CultureInfo.InvariantCulture));
+                    break;
+                }
+                if (type1 == DataType.Double)
+                {
+                    sbh.Append(stringBuilder, ValueDouble.ToString(null, CultureInfo.InvariantCulture));
+                    break;
+                }
+                if (type1 == DataType.Int64)
+                {
+                    sbh.Append(stringBuilder, ValueLong.ToString(null, CultureInfo.InvariantCulture));
+                    break;
+                }
                 break;
 
             case InstructionType.CallInstruction:
                 sbh.Append(stringBuilder, '.');
-                sbh.Append(stringBuilder, Type1.ToOpcodeParam());
+                sbh.Append(stringBuilder, type1.ToOpcodeParam());
                 sbh.Append(stringBuilder, ' ');
-                sbh.Append(stringBuilder, Function);
+                sbh.Append(stringBuilder, ValueFunction?.ToString() ?? "(null)");
                 sbh.Append(stringBuilder, "(argc=");
                 sbh.Append(stringBuilder, ArgumentsCount);
                 sbh.Append(stringBuilder, ')');
@@ -1108,19 +1107,23 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
 
             case InstructionType.BreakInstruction:
                 sbh.Append(stringBuilder, '.');
-                sbh.Append(stringBuilder, Type1.ToOpcodeParam());
+                sbh.Append(stringBuilder, type1.ToOpcodeParam());
                 if (unknownBreak)
                 {
                     sbh.Append(stringBuilder, ' ');
                     sbh.Append(stringBuilder, ExtendedKind);
                 }
-                if (Type1 == DataType.Int32)
+                if (type1 == DataType.Int32)
                 {
                     sbh.Append(stringBuilder, ' ');
-                    if (Function != null)
-                        sbh.Append(stringBuilder, Function);
+                    if (ValueFunction is not null)
+                    {
+                        sbh.Append(stringBuilder, ValueFunction.ToString() ?? "(null)");
+                    }
                     else
+                    {
                         sbh.Append(stringBuilder, IntArgument);
+                    }
                 }
                 break;
         }
@@ -1128,35 +1131,43 @@ public class UndertaleInstruction : UndertaleObject, IGMInstruction
 
     public uint CalculateInstructionSize()
     {
-        if (GetReference<UndertaleVariable>() != null || GetReference<UndertaleFunction>() != null)
+        if (ValueVariable is not null || ValueFunction is not null)
+        {
             return 2;
-        else if (GetInstructionType(Kind) == InstructionType.PushInstruction)
-            if (Type1 == DataType.Double || Type1 == DataType.Int64)
+        }
+        if (GetInstructionType(Kind) == InstructionType.PushInstruction)
+        {
+            if (Type1 is DataType.Double or DataType.Int64)
+            {
                 return 3;
-            else if (Type1 != DataType.Int16)
+            }
+            if (Type1 != DataType.Int16)
+            {
                 return 2;
+            }
+        }
         if (Kind == Opcode.Break && Type1 == DataType.Int32)
+        {
             return 2;
+        }
         return 1;
     }
 
     // Underanalyzer implementations
-    int IGMInstruction.Address => (int)Address * 4;
     IGMInstruction.Opcode IGMInstruction.Kind => (IGMInstruction.Opcode)Kind;
     IGMInstruction.ExtendedOpcode IGMInstruction.ExtKind => (IGMInstruction.ExtendedOpcode)ExtendedKind;
     IGMInstruction.ComparisonType IGMInstruction.ComparisonKind => (IGMInstruction.ComparisonType)ComparisonKind;
     IGMInstruction.DataType IGMInstruction.Type1 => (IGMInstruction.DataType)Type1;
     IGMInstruction.DataType IGMInstruction.Type2 => (IGMInstruction.DataType)Type2;
     IGMInstruction.InstanceType IGMInstruction.InstType => (IGMInstruction.InstanceType)TypeInst;
-    IGMVariable IGMInstruction.Variable => Destination?.Target ?? (Value as Reference<UndertaleVariable>)?.Target;
-    IGMFunction IGMInstruction.Function => Function?.Target ?? (Value as Reference<UndertaleFunction>)?.Target;
-    IGMInstruction.VariableType IGMInstruction.ReferenceVarType => (IGMInstruction.VariableType)(Destination?.Type ?? (Value as Reference<UndertaleVariable>)?.Type);
-    double IGMInstruction.ValueDouble => (double)Value;
-    short IGMInstruction.ValueShort => (short)Value;
-    int IGMInstruction.ValueInt => (int)Value;
-    long IGMInstruction.ValueLong => (long)Value;
-    bool IGMInstruction.ValueBool => (bool)Value;
-    IGMString IGMInstruction.ValueString => ((UndertaleResourceById<UndertaleString, UndertaleChunkSTRG>)Value).Resource;
+    IGMVariable IGMInstruction.Variable => ValueVariable;
+    IGMFunction IGMInstruction.Function => ValueFunction;
+    IGMInstruction.VariableType IGMInstruction.ReferenceVarType => (IGMInstruction.VariableType)ReferenceType;
+    double IGMInstruction.ValueDouble => ValueDouble;
+    short IGMInstruction.ValueShort => ValueShort;
+    int IGMInstruction.ValueInt => ValueInt;
+    long IGMInstruction.ValueLong => ValueLong;
+    IGMString IGMInstruction.ValueString => ValueString?.Resource;
     int IGMInstruction.BranchOffset => JumpOffset * 4;
     bool IGMInstruction.PopWithContextExit => JumpOffsetPopenvExitMagic;
     byte IGMInstruction.DuplicationSize => Extra;
@@ -1281,6 +1292,19 @@ public static class UndertaleInstructionUtil
             "s" => UndertaleInstruction.DataType.String,
             "e" => UndertaleInstruction.DataType.Int16,
             _ => (UndertaleInstruction.DataType)Enum.Parse(typeof(UndertaleInstruction.DataType), type, true),
+        };
+    }
+
+    public static string ToVariableTypeParam(this UndertaleInstruction.VariableType type)
+    {
+        return type switch
+        {
+            UndertaleInstruction.VariableType.StackTop => "stacktop",
+            UndertaleInstruction.VariableType.Array => "array",
+            UndertaleInstruction.VariableType.Instance => "instance",
+            UndertaleInstruction.VariableType.ArrayPopAF => "arraypopaf",
+            UndertaleInstruction.VariableType.ArrayPushAF => "arraypushaf",
+            _ => type.ToString().ToLower(CultureInfo.InvariantCulture),
         };
     }
 }
@@ -1478,10 +1502,7 @@ public class UndertaleCode : UndertaleNamedResource, UndertaleObjectWithBlobs, I
             Instructions.Capacity = (int)reader.BytecodeAddresses[(uint)instructionStartPos].InstructionCount;
             while (reader.AbsPosition < instructionEndPos)
             {
-                uint address = (uint)(reader.AbsPosition - instructionStartPos) / 4;
-                UndertaleInstruction instr = reader.ReadUndertaleObject<UndertaleInstruction>();
-                instr.Address = address;
-                Instructions.Add(instr);
+                Instructions.Add(reader.ReadUndertaleObject<UndertaleInstruction>());
             }
 
             // Set this flag for code editor, etc. to not get confused later
@@ -1528,10 +1549,7 @@ public class UndertaleCode : UndertaleNamedResource, UndertaleObjectWithBlobs, I
                 Instructions.Capacity = (int)info.InstructionCount;
                 while (reader.AbsPosition < instructionEndPos)
                 {
-                    uint address = (uint)(reader.AbsPosition - instructionStartPos) / 4;
-                    UndertaleInstruction instr = reader.ReadUndertaleObject<UndertaleInstruction>();
-                    instr.Address = address;
-                    Instructions.Add(instr);
+                    Instructions.Add(reader.ReadUndertaleObject<UndertaleInstruction>());
                 }
 
                 // Return from instruction blob
@@ -1605,33 +1623,17 @@ public class UndertaleCode : UndertaleNamedResource, UndertaleObjectWithBlobs, I
         return count;
     }
 
-    public void UpdateAddresses()
+    /// <summary>
+    /// Recalculates this code entry's length, based on the size of all instructions contained within.
+    /// </summary>
+    public void UpdateLength()
     {
         uint addr = 0;
         foreach (UndertaleInstruction instr in Instructions)
         {
-            instr.Address = addr;
             addr += instr.CalculateInstructionSize();
         }
         Length = addr * 4;
-    }
-
-    public UndertaleInstruction GetInstructionFromAddress(uint address)
-    {
-        UpdateAddresses();
-        foreach (UndertaleInstruction instr in Instructions)
-            if (instr.Address == address)
-                return instr;
-        return null;
-    }
-
-    public UndertaleInstruction GetInstructionBeforeAddress(uint address)
-    {
-        UpdateAddresses();
-        foreach (UndertaleInstruction instr in Instructions)
-            if (instr.Address + instr.CalculateInstructionSize() == address)
-                return instr;
-        return null;
     }
 
     /// <summary>
@@ -1643,7 +1645,7 @@ public class UndertaleCode : UndertaleNamedResource, UndertaleObjectWithBlobs, I
         HashSet<UndertaleVariable> vars = new();
         foreach (UndertaleInstruction instr in Instructions)
         {
-            if (instr.GetReference<UndertaleVariable>()?.Target is UndertaleVariable v)
+            if (instr.ValueVariable is UndertaleVariable v)
             {
                 vars.Add(v);
             }
@@ -1660,13 +1662,32 @@ public class UndertaleCode : UndertaleNamedResource, UndertaleObjectWithBlobs, I
         HashSet<UndertaleVariable> vars = new();
         foreach (UndertaleInstruction instr in Instructions)
         {
-            if (instr.GetReference<UndertaleVariable>()?.Target is UndertaleVariable v &&
+            if (instr.ValueVariable is UndertaleVariable v && 
                 v.InstanceType == UndertaleInstruction.InstanceType.Local)
             {
                 vars.Add(v);
             }
         }
         return vars;
+    }
+
+    /// <summary>
+    /// Finds and returns the index of the first try variable used, or -1 if none is found.
+    /// </summary>
+    public int FindFirstTryLocalIndex()
+    {
+        const string variablePrefix = "__yy_breakEx";
+        foreach (UndertaleInstruction instr in Instructions)
+        {
+            if (instr.ValueVariable is UndertaleVariable v &&
+                v.InstanceType == UndertaleInstruction.InstanceType.Local &&
+                v.Name.Content.StartsWith(variablePrefix, StringComparison.Ordinal) &&
+                int.TryParse(v.Name.Content[variablePrefix.Length..], out int index))
+            {
+                return index;
+            }
+        }
+        return -1;
     }
 
     /// <summary>
@@ -1679,7 +1700,7 @@ public class UndertaleCode : UndertaleNamedResource, UndertaleObjectWithBlobs, I
             return;
 
         Instructions.AddRange(instructions);
-        UpdateAddresses();
+        UpdateLength();
     }
 
     /// <summary>

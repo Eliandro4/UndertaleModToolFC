@@ -49,7 +49,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = MapOpcode(opcode)
         };
     }
@@ -59,7 +58,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = MapOpcode(opcode),
             Type1 = (UndertaleInstruction.DataType)dataType
         };
@@ -70,7 +68,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = MapOpcode(opcode),
             Type1 = (UndertaleInstruction.DataType)dataType1,
             Type2 = (UndertaleInstruction.DataType)dataType2
@@ -82,11 +79,10 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = MapOpcode(opcode),
             Type1 = (UndertaleInstruction.DataType)dataType1,
             Type2 = (UndertaleInstruction.DataType)dataType2,
-            Value = value
+            ValueShort = value
         };
     }
 
@@ -95,11 +91,10 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = MapOpcode(opcode),
             Type1 = (UndertaleInstruction.DataType)dataType1,
             Type2 = (UndertaleInstruction.DataType)dataType2,
-            Value = value
+            ValueInt = value
         };
     }
 
@@ -108,11 +103,10 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = MapOpcode(opcode),
             Type1 = (UndertaleInstruction.DataType)dataType1,
             Type2 = (UndertaleInstruction.DataType)dataType2,
-            Value = value
+            ValueLong = value
         };
     }
 
@@ -121,11 +115,10 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = MapOpcode(opcode),
             Type1 = (UndertaleInstruction.DataType)dataType1,
             Type2 = (UndertaleInstruction.DataType)dataType2,
-            Value = value
+            ValueDouble = value
         };
     }
 
@@ -134,7 +127,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = MapOpcode(opcode),
             ComparisonKind = (UndertaleInstruction.ComparisonType)comparisonType,
             Type1 = (UndertaleInstruction.DataType)dataType1,
@@ -147,7 +139,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = UndertaleInstruction.Opcode.Break,
             ExtendedKind = (short)extendedOpcode,
             Type1 = UndertaleInstruction.DataType.Int16
@@ -159,7 +150,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = UndertaleInstruction.Opcode.Break,
             ExtendedKind = (short)extendedOpcode,
             Type1 = UndertaleInstruction.DataType.Int32,
@@ -172,7 +162,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = UndertaleInstruction.Opcode.Dup,
             Type1 = (UndertaleInstruction.DataType)dataType,
             Extra = duplicationSize
@@ -184,7 +173,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = UndertaleInstruction.Opcode.Dup,
             Type1 = (UndertaleInstruction.DataType)dataType,
             Extra = duplicationSize,
@@ -197,7 +185,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = UndertaleInstruction.Opcode.Pop,
             Type1 = UndertaleInstruction.DataType.Int16,
             Type2 = UndertaleInstruction.DataType.Variable,
@@ -210,7 +197,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = UndertaleInstruction.Opcode.PopEnv,
             JumpOffsetPopenvExitMagic = true,
             JumpOffset = 0xF00000
@@ -222,7 +208,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = UndertaleInstruction.Opcode.Call,
             Type1 = UndertaleInstruction.DataType.Int32,
             ArgumentsCount = (ushort)argumentCount
@@ -234,7 +219,6 @@ internal class CodeBuilder : ICodeBuilder
     {
         return new UndertaleInstruction()
         {
-            Address = (uint)(address / 4),
             Kind = UndertaleInstruction.Opcode.CallV,
             Type1 = UndertaleInstruction.DataType.Variable,
             Extra = (byte)argumentCount
@@ -242,12 +226,12 @@ internal class CodeBuilder : ICodeBuilder
     }
 
     /// <inheritdoc/>
-    public void PatchInstruction(IGMInstruction instruction, string variableName, InstanceType variableInstanceType, InstanceType instructionInstanceType, VariableType variableType, bool isBuiltin, bool isStructVariable)
+    public void PatchInstruction(IGMInstruction instruction, string variableName, InstanceType variableInstanceType, InstanceType instructionInstanceType, VariableType variableType, bool isBuiltin, bool keepInstanceType)
     {
         if (instruction is UndertaleInstruction utInstruction)
         {
             // Transform instance type into Self when not using simple variables, either in GMLv2 or when instance type is an object/instance
-            if (!isStructVariable && (variableInstanceType >= 0 || _globalContext.UsingGMLv2) && variableType != VariableType.Normal && variableType != VariableType.Instance)
+            if (!keepInstanceType && (variableInstanceType >= 0 || _globalContext.UsingGMLv2) && variableType != VariableType.Normal && variableType != VariableType.Instance)
             {
                 variableInstanceType = InstanceType.Self;
                 instructionInstanceType = InstanceType.Self;
@@ -267,35 +251,23 @@ internal class CodeBuilder : ICodeBuilder
                 variableInstanceType = InstanceType.Self;
             }
 
-            // Create blank reference that will be populated with a target later
-            UndertaleInstruction.Reference<UndertaleVariable> reference = new(null, (UndertaleInstruction.VariableType)variableType);
-
             // Lookup variable (or create new one)
             if (variableInstanceType == InstanceType.Local)
             {
                 // Queue reference to be patched later
-                _globalContext.CurrentCompileGroup.RegisterLocalVariable(reference, variableName);
+                _globalContext.CurrentCompileGroup.RegisterLocalVariable(utInstruction, variableName);
             }
             else
             {
-                // Register/define non-local variable, and update reference immediately
+                // Register/define non-local variable, and update variable on instruction immediately
                 _globalContext.CurrentCompileGroup.RegisterNonLocalVariable(variableName);
                 UndertaleString nameString = _globalContext.CurrentCompileGroup.MakeString(variableName, out int nameStringId);
-                reference.Target = _globalContext.Data.Variables.EnsureDefined(
+                utInstruction.ValueVariable = _globalContext.Data.Variables.EnsureDefined(
                     nameString, nameStringId, (UndertaleInstruction.InstanceType)variableInstanceType, isBuiltin, _globalContext.Data);
             }
 
-            // Update instruction
-            if (utInstruction.Kind == UndertaleInstruction.Opcode.Pop)
-            {
-                // Pop instruction, set instruction's destination
-                utInstruction.Destination = reference;
-            }
-            else
-            {
-                // All other instructions, just set instruction's value
-                utInstruction.Value = reference;
-            }
+            // Update other parts of instruction
+            utInstruction.ReferenceType = (UndertaleInstruction.VariableType)variableType;
             if (variableType is VariableType.Normal or VariableType.Instance)
             {
                 utInstruction.TypeInst = (UndertaleInstruction.InstanceType)instructionInstanceType;
@@ -309,28 +281,22 @@ internal class CodeBuilder : ICodeBuilder
         if (instruction is UndertaleInstruction utInstruction)
         {
             // Resolve reference
-            UndertaleInstruction.Reference<UndertaleFunction> reference;
+            UndertaleFunction reference;
             if (scope.TryGetDeclaredFunction(functionName, out FunctionEntry entry))
             {
-                reference = new(
-                    entry.Function as UndertaleFunction ?? throw new InvalidOperationException("Function not resolved for function entry")
-                );
+                reference = entry.Function as UndertaleFunction ?? throw new InvalidOperationException("Function not resolved for function entry");
             }
             else if (_globalContext.Builtins.LookupBuiltinFunction(functionName) is not null)
             {
-                reference = new(
-                    _globalContext.Data.Functions.EnsureDefined(functionName, _globalContext.Data.Strings)
-                );
+                reference = _globalContext.Data.Functions.EnsureDefined(functionName, _globalContext.Data.Strings);
             }
             else if (_globalContext.GlobalFunctions.TryGetFunction(functionName, out IGMFunction function))
             {
-                reference = new((UndertaleFunction)function);
+                reference = (UndertaleFunction)function;
             }
             else if (_globalContext.GetScriptId(functionName, out int _))
             {
-                reference = new(
-                    _globalContext.Data.Functions.EnsureDefined(functionName, _globalContext.Data.Strings)
-                );
+                reference = _globalContext.Data.Functions.EnsureDefined(functionName, _globalContext.Data.Strings);
             }
             else
             {
@@ -338,14 +304,7 @@ internal class CodeBuilder : ICodeBuilder
             }
 
             // Put reference on instruction
-            if (utInstruction.Kind == UndertaleInstruction.Opcode.Push)
-            {
-                utInstruction.Value = reference;
-            }
-            else
-            {
-                utInstruction.Function = reference;
-            }
+            utInstruction.ValueFunction = reference;
         }
     }
 
@@ -355,18 +314,10 @@ internal class CodeBuilder : ICodeBuilder
         if (instruction is UndertaleInstruction utInstruction)
         {
             // Resolve reference
-            UndertaleInstruction.Reference<UndertaleFunction> reference = new(
-                functionEntry.Function as UndertaleFunction ?? throw new InvalidOperationException("Function not resolved for function entry"));
+            UndertaleFunction reference = functionEntry.Function as UndertaleFunction ?? throw new InvalidOperationException("Function not resolved for function entry");
 
             // Put reference on instruction
-            if (utInstruction.Kind == UndertaleInstruction.Opcode.Push)
-            {
-                utInstruction.Value = reference;
-            }
-            else
-            {
-                utInstruction.Function = reference;
-            }
+            utInstruction.ValueFunction = reference;
         }
     }
 
@@ -379,7 +330,7 @@ internal class CodeBuilder : ICodeBuilder
             UndertaleString str = _globalContext.CurrentCompileGroup.MakeString(stringContent, out int strIndex);
 
             // Update instruction
-            utInstruction.Value = new UndertaleResourceById<UndertaleString, UndertaleChunkSTRG>(str, strIndex); 
+            utInstruction.ValueString = new UndertaleResourceById<UndertaleString, UndertaleChunkSTRG>(str, strIndex); 
         }
     }
 
@@ -390,7 +341,7 @@ internal class CodeBuilder : ICodeBuilder
         {
             if (utInstruction.Kind == UndertaleInstruction.Opcode.Push)
             {
-                utInstruction.Value = value;
+                utInstruction.ValueInt = value;
             }
             else
             {
@@ -409,9 +360,7 @@ internal class CodeBuilder : ICodeBuilder
     /// <inheritdoc/>
     public int GenerateTryVariableID(int internalIndex)
     {
-        // Use the internal index that the compiler generates for now
-        // TODO: possibly allow compile context user to specify that this index should be global to the compile context?
-        return internalIndex;
+        return _globalContext.CurrentCompileGroup.NextTryVariableIndex++;
     }
 
     /// <inheritdoc/>
