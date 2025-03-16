@@ -739,10 +739,15 @@ public partial class Program : IScriptInterface
         string[] codeArray = Data.Code.Select(c => c.Name.Content).ToArray();
         UndertaleCode codo = Data.Code.ByName(codeArray[0]);
         string corio;
+        int jay = 0;
         Regex regex = new Regex("\"([^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"");
-        foreach (string code in codeArray)
+        SetProgressBar(null, "Scanning Scripts", jay, Data.Scripts.Count);
+        StartProgressBarUpdater();
+        //foreach (string code in codeArray)
+        for (jay = 0; jay < codeArray.Length; jay++)
         {
-            codo = Data.Code.ByName(code);
+            SetProgressBar(null, "Scanning Scripts", jay, codeArray.Length);
+            codo = Data.Code.ByName(codeArray[jay]);
             corio = GetDecompiledText(codo);
             MatchCollection matches = regex.Matches(corio);
             for (int i = 0; i < matches.Count; i++)
@@ -753,6 +758,8 @@ public partial class Program : IScriptInterface
                     extractedStrings += $"\n\t\"{codo.Name.ToString().Replace("\"", "")}_{i}\": \"{val}\",";
             }
         }
+        StopProgressBarUpdater();
+        HideProgressBar();
         extractedStrings += "\n}";
         extractedStrings = extractedStrings.Replace("\",\n}", "\"\n}");
         string exo = Exportrepeatedly ?  "repeated_strings" : "non_repeated_strings";
@@ -800,8 +807,12 @@ public partial class Program : IScriptInterface
         List<string> InternalextractedStringsList = InternalextractedStrings.Split("\n").ToList();
         InternalextractedStrings = null;
         string[] lines = File.ReadAllLines(path);
+        int DA = 0;
+        SetProgressBar(null, "Importing Lang", DA, lines.Count());
+        StartProgressBarUpdater();
         foreach (string line in lines)
         {
+            SetProgressBar(null, "Importing Lang", DA, lines.Count());
             Match match_ids = StringsIdRegex.Match(line);
             Match match_strings = LangsStringsRegex.Match(line);
             //Console.WriteLine(match_ids.Groups[1].Value);
@@ -814,8 +825,11 @@ public partial class Program : IScriptInterface
                     Data.Strings[Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == InternalextractedStringsList[i]))].Content = new(match_strings.Groups[1].Value);
                 }
             }
+            DA++;
         }
-        ScriptMessage("Lang imported succesfully");
+        StopProgressBarUpdater();
+        HideProgressBar();
+        ScriptMessage("\nLang imported succesfully\n");
     }
 
     private void ReplaceLangOld(string path)
@@ -826,8 +840,12 @@ public partial class Program : IScriptInterface
         Regex script_strings = new Regex("\"([^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"");
         List<string> arustringos = Data.Strings.Where(f => f is not null).Select(f => f.ToString().Replace("\"", "")).ToList();
         string[] lines = File.ReadAllLines(path);
+        int yab = 0;
+        SetProgressBar(null, "Importing Lang", yab, lines.Count());
+        StartProgressBarUpdater();
         foreach (string line in lines)
         {
+            SetProgressBar(null, "Importing Lang", yab, lines.Count());
             Match scripto_namos = script_names.Match(line);
             Match strings_langos = lang_strings.Match(line);
             Match stringos_id = strings_id.Match(line);
@@ -862,9 +880,12 @@ public partial class Program : IScriptInterface
                     }
                     //Console.WriteLine(i + ": " + scripts_stringos[i]);
                 }
+                yab++;
             }
         }
-        ScriptMessage("Lang imported succesfully");
+        StopProgressBarUpdater();
+        HideProgressBar();
+        ScriptMessage("\nLang imported succesfully\n");
     }
 
     /// <summary>
