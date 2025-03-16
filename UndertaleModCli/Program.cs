@@ -790,15 +790,19 @@ public partial class Program : IScriptInterface
                     //Console.WriteLine(stringos_id.Groups[1].Value + " " + i);
                     if (stringos_id.Groups[1].Value == $"{i}")
                     {
-                        Console.WriteLine("EQUALIDADE");
+                        //Console.WriteLine("EQUALIDADE");
                         int aoi = 0;
                         foreach (string something in arustringos)
                         {
                             if (scripts_stringos[i].Groups[1].Value == something)
                             {
-                                Console.WriteLine($"{scripts_stringos[i].Groups[1].Value} : {something} : {strings_langos.Groups[1].Value}");
-                                Data.Strings[aoi].Content = strings_langos.Groups[1].Value;
-                                Console.WriteLine("String Subtituida");
+                                if (scripts_stringos[i].Groups[1].Value != strings_langos.Groups[1].Value)
+                                {
+                                    //Console.WriteLine($"{scripts_stringos[i].Groups[1].Value} : {something} : {strings_langos.Groups[1].Value}");
+                                    Data.Strings[aoi].Content = strings_langos.Groups[1].Value;
+                                    Console.WriteLine("String Subtituida");
+                                }
+                                //Console.WriteLine($"{scripts_stringos[i].Groups[1].Value} : {strings_langos.Groups[1].Value}");
                                 break;
                             }
                             aoi++;
