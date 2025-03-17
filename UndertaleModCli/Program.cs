@@ -734,7 +734,7 @@ public partial class Program : IScriptInterface
 
     private void DumpLang()
     {
-        bool Exportrepeatedly = ScriptQuestion("Dump repeated strings?");
+        bool UseID = ScriptQuestion("Dump strings with ID?");
         string extractedStrings = "{";
         string[] codeArray = Data.Code.Select(c => c.Name.Content).ToArray();
         UndertaleCode codo = Data.Code.ByName(codeArray[0]);
@@ -754,26 +754,58 @@ public partial class Program : IScriptInterface
             {
                 Match match = matches[i];
                 string val = match.Groups[1].Value;
-                if (((!extractedStrings.Contains(val)) || (Exportrepeatedly)) && (!val.Contains("gml_GlobalScript")) && (!val.Contains("rm_")) && (!val.Contains("obj_")) && (!val.Contains("bg_")) && (!val.Contains("spr_")) && (!val.Contains("_sound")))
-                    extractedStrings += $"\n\t\"{codo.Name.ToString().Replace("\"", "")}_{i}\": \"{val}\",";
+                if ((!extractedStrings.Contains(val)) && (!val.Contains("gml_GlobalScript")) && (!val.Contains("rm_")) && (!val.Contains("obj_")) && (!val.Contains("bg_")) && (!val.Contains("spr_")) && (!val.Contains("_sound")))
+                {
+                    if ((Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val)) != -1) && UseID)
+                    {
+                        extractedStrings += $"\n\t\"[{Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val))}]{codo.Name.ToString().Replace("\"", "")}_{i}\": \"{val}\",";
+                    }
+                    else if (!UseID)
+                    {
+                        extractedStrings += $"\n\t\"{codo.Name.ToString().Replace("\"", "")}_{i}\": \"{val}\",";
+                    }
+                }
             }
         }
         StopProgressBarUpdater();
         HideProgressBar();
         extractedStrings += "\n}";
         extractedStrings = extractedStrings.Replace("\",\n}", "\"\n}");
-        string exo = Exportrepeatedly ?  "repeated_strings" : "non_repeated_strings";
+        string exo = UseID ?  "StringsId" : "WStringsID";
         File.WriteAllText(Environment.CurrentDirectory + $"\\exported_lang_{exo}.json", extractedStrings);
         ScriptMessage($"\nLang file created sucessfully.\n\nLocation: {Environment.CurrentDirectory + $"\\exported_lang_{exo}.json"}");
     }
 
     private void ReplaceLang(string path)
     {
-        bool neru = ScriptQuestion("Use the new version?");
-        if (neru)
+        string neru;
+        do
+        {
+            Console.WriteLine("Qual versão usar?\n1.CodeBased, abre script por scring e altera as strings (não o código)\n2.LangBased, cria uma lang interna e a usa como guia para a importação\n3.StringBased, usa como based os \"ids\" das strings");
+            Console.Write("Resposta: ");
+            neru = Console.ReadLine();
+        } while ((neru != "1") && (neru !="2") && (neru !="3"));
+        if (neru == "2")
             ReplaceLangNew(path);
-        else
+        if (neru == "1")
             ReplaceLangOld(path);
+        if (neru == "3")
+            ReplaceLangThree(path);
+    }
+    private void ReplaceLangThree(string path)
+    {
+        Regex StringsIdRegex = new Regex(@"""\[(.*?)\][^""]*"":");
+        Regex LangsStringsRegex = new Regex(@": ""((?:[^""\\]|\\.)*)""");
+        string[] lines = File.ReadAllLines(path);
+        foreach (string line in lines)
+        {
+            Match strings_id_match = StringsIdRegex.Match(line);
+            Match lang_strings_match = LangsStringsRegex.Match(line);
+            if (strings_id_match.Groups[1].Value != String.Empty)
+            {
+                Data.Strings[int.Parse(strings_id_match.Groups[1].Value)].Content = lang_strings_match.Groups[1].Value;
+            }
+        }
     }
 
     private void ReplaceLangNew(string path)
