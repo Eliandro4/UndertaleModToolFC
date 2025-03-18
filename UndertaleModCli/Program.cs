@@ -121,7 +121,8 @@ public partial class Program : IScriptInterface
             new Option<FileInfo>(new[] { "-o", "--output" }, "Where to save the modified data file"),
             new Option<string>(new[] { "-l", "--line" }, "Run C# string. Runs AFTER everything else"),
             //TODO: make interactive another Command
-            new Option<bool>(new[] { "-i", "--interactive" }, "Interactive menu launch")
+            new Option<bool>(new[] { "-i", "--interactive" }, "Interactive menu launch"),
+            new Option<bool>(new[] { "-lf", "--langfiyer" }, "Langfy the game")
         };
         loadCommand.Handler = CommandHandler.Create<LoadOptions>(Program.Load);
 
@@ -307,6 +308,11 @@ public partial class Program : IScriptInterface
         {
             program.ScriptPath = null;
             program.RunCSharpCode(options.Line);
+        }
+
+        if (options.Lang)
+        {
+            program.Langfiyer();
         }
 
         // if parameter to save file was given, save the data file
@@ -740,7 +746,7 @@ public partial class Program : IScriptInterface
         UndertaleCode codo = Data.Code.ByName(codeArray[0]);
         string corio;
         int jay = 0;
-        Regex regex = new Regex("\"([^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"");
+        Regex regex = new Regex(@"""((?:[^""\\]|\\.)*)""");
         SetProgressBar(null, "Scanning Scripts", jay, Data.Scripts.Count);
         StartProgressBarUpdater();
         //foreach (string code in codeArray)
@@ -815,7 +821,7 @@ public partial class Program : IScriptInterface
         string[] codeArray = Data.Code.Select(c => c.Name.Content).ToArray();
         UndertaleCode codo = Data.Code.ByName(codeArray[0]);
         string corio;
-        Regex regex = new Regex("\"([^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"");
+        Regex regex = new Regex(@"""((?:[^""\\]|\\.)*)""");
         Regex StringsIdRegex = new Regex(@"""([^""]*)"":");
         Regex LangsStringsRegex = new Regex(@": ""((?:[^""\\]|\\.)*)""");
         foreach (string code in codeArray)
@@ -869,7 +875,7 @@ public partial class Program : IScriptInterface
         Regex script_names = new Regex(@"""([^""]+)_\d+"":");
         Regex lang_strings = new Regex(@": \s*""([^""\\]*(\\.[^""\\]*)*)""");
         Regex strings_id = new Regex(@"_(\d+)""\s*:");
-        Regex script_strings = new Regex("\"([^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"");
+        Regex script_strings = new Regex(@"""((?:[^""\\]|\\.)*)""");
         List<string> arustringos = Data.Strings.Where(f => f is not null).Select(f => f.ToString().Replace("\"", "")).ToList();
         string[] lines = File.ReadAllLines(path);
         int yab = 0;
@@ -1414,6 +1420,58 @@ Note: If an error window stating that 'the directory is not empty' appears, plea
         }
     }
 
+    private void Langfiyer()
+    {
+        string extractedStrings = "[strings]";
+        List<string> codeArray = Data.Code.Select(c => c.Name.Content).ToList();
+        Directory.CreateDirectory(Environment.CurrentDirectory + "\\scriptos");
+        Directory.CreateDirectory(Environment.CurrentDirectory + "\\lang_func");
+        File.WriteAllText(Environment.CurrentDirectory + "\\lang_func\\lang_text.gml", "function lang_text(arg0 = \"\")\n{\n\tini_open(working_directory + \"/lang/lang_file.ini\");\n\tvar texto = ini_read_string(\"strings\", arg0, \"null\");\n\tini_close();\n\treturn texto;\n}");
+        foreach (string yac in Data.Code.Select(c => c.Name.Content).ToList())
+        {
+            if (yac.Contains("gml_Script"))
+            {
+                codeArray.Remove(yac);
+            }
+        }
+        UndertaleCode codo = Data.Code.ByName(codeArray[0]);
+        string corio;
+        int jay = 0;
+        Regex regex = new Regex(@"""((?:[^""\\]|\\.)*)""");
+        SetProgressBar(null, "Scanning Scripts", jay, Data.Scripts.Count);
+        StartProgressBarUpdater();
+        //foreach (string code in codeArray)
+        for (jay = 0; jay < codeArray.Count; jay++)
+        {
+            SetProgressBar(null, "Scanning Scripts", jay, codeArray.Count);
+            codo = Data.Code.ByName(codeArray[jay]);
+            corio = GetDecompiledText(codo);
+            MatchCollection matches = regex.Matches(corio);
+            for (int i = 0; i < matches.Count; i++)
+            {
+                Match match = matches[i];
+                string val = match.Groups[1].Value;
+                if ((Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val)) != -1) && (!val.Contains("gml_GlobalScript")) && (!val.Contains("rm_")) && (!val.Contains("obj_")) && (!val.Contains("bg_")) && (!val.Contains("spr_")) && (!val.Contains("_sound")))
+                {
+                    if (!extractedStrings.Contains(val))
+                    {
+                        extractedStrings += $"\n{Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val))} = \"{val}\"";
+                    }
+                    corio = corio.Replace($"\"{val}\"", $"gml_Script_lang_text_lang_text(\"{Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val))}\")");
+                        Console.WriteLine("String substituida");
+                }
+                
+            }
+            //Console.WriteLine(codeArray[jay]);
+            File.WriteAllText(Environment.CurrentDirectory + "\\scriptos\\" + codeArray[jay] + ".gml", corio);
+        }
+        StopProgressBarUpdater();
+        HideProgressBar();
+        Directory.CreateDirectory(Environment.CurrentDirectory + "\\lang");
+        File.WriteAllText(Environment.CurrentDirectory + "\\lang\\lang_file.ini", extractedStrings);
+        ScriptMessage($"\nLang file created sucessfully.\n\nLocation: {Environment.CurrentDirectory + "\\lang\\lang_file.ini"}");
+    }
+    
     /// <summary>
     /// Replaces an embedded texture with contents from another file.
     /// </summary>
