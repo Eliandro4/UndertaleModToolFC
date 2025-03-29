@@ -32,8 +32,20 @@ public class DumpOptions
 	/// </summary>
 	public bool Strings { get; set; }
 
-	/// <summary>
-	/// Determines if embedded textures should get dumped
-	/// </summary>
-	public bool Textures { get; set; }
+    public bool Strings_Better { get; set; }
+
+	public bool Lang { get; set; }
+
+    /// <summary>
+    /// Determines if embedded textures should get dumped
+    /// </summary>
+    public bool Textures { get; set; }
+
+    public bool Sprites { get; set; }
+
+    public bool Sounds { get; set; }
+
+    public string[] FontData { get; set; }
+
+    public bool ASM { get; set; }
 }

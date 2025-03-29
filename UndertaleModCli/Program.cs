@@ -19,6 +19,9 @@ using System.Threading.Tasks;
 using UndertaleModLib.Models;
 using Newtonsoft.Json;
 using UndertaleModLib.Compiler;
+using UndertaleModLib.Decompiler;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace UndertaleModCli;
 
@@ -118,7 +121,8 @@ public partial class Program : IScriptInterface
             new Option<FileInfo>(new[] { "-o", "--output" }, "Where to save the modified data file"),
             new Option<string>(new[] { "-l", "--line" }, "Run C# string. Runs AFTER everything else"),
             //TODO: make interactive another Command
-            new Option<bool>(new[] { "-i", "--interactive" }, "Interactive menu launch")
+            new Option<bool>(new[] { "-i", "--interactive" }, "Interactive menu launch"),
+            new Option<bool>(new[] { "-lf", "--langfiyer" }, "Langfy the game")
         };
         loadCommand.Handler = CommandHandler.Create<LoadOptions>(Program.Load);
 
@@ -135,7 +139,13 @@ public partial class Program : IScriptInterface
             new Option<string[]>(new[] { "-c", "--code" },
                 $"The code files to dump. Ex. gml_Script_init_map gml_Script_reset_map. Specify '{UMT_DUMP_ALL}' to dump all code entries"),
             new Option<bool>(new[] { "-s", "--strings" }, "Whether to dump all strings"),
-            new Option<bool>(new[] { "-t", "--textures" }, "Whether to dump all embedded textures")
+            new Option<bool>(new[] { "-sb", "--strings_better" }, "Dump all the strings to a json file"),
+            new Option<bool>(new[] { "-l", "--lang" }, "Dump all the game strings in code to a lang file"),
+            new Option<bool>(new[] { "-t", "--textures" }, "Whether to dump all embedded textures"),
+            new Option<bool>(new[] { "-i", "--images" }, "Whether to dump all images/sprites"),
+            new Option<bool>(new[] { "-sfx", "--sounds"}, "Whether to dump all sounds"),
+            new Option<string[]>(new[] { "-f", "--fontdata"}, $"Whether to dump fontdata. Specify '{UMT_DUMP_ALL}' to dump all fontdata. Use '-list' after '-f' to list the fontdata"),
+            new Option<bool>(new[] {"-a", "--assembly"}, "Whether to dump all scripts in assembly")
         };
         dumpCommand.Handler = CommandHandler.Create<DumpOptions>(Program.Dump);
 
@@ -147,8 +157,11 @@ public partial class Program : IScriptInterface
             new Option<FileInfo>(new[] { "-o", "--output" }, "Where to save the modified data file"),
             new Option<string[]>(new[] { "-c", "--code" },
                 $"Which code files to replace with which file. Ex. 'gml_Script_init_map=./newCode.gml'. It is possible to replace everything by using '{UMT_REPLACE_ALL}'"),
+            new Option<string>(new[] { "-s", "--strings" }, "Import a string.txt. Ex. './strings.txt'"),
+            new Option<bool>(new[] { "-sb", "--strings_better" }, "Import a strings_better.json. Ex. './strings.txt'"),
+            new Option<string>(new[] { "-l", "--lang" }, "replace the games strings with a lang file"),
             new Option<string[]>(new[] { "-t", "--textures" },
-                $"Which embedded texture entry to replace with which file. Ex. 'Texture 0=./newTexture.png'. It is possible to replace everything by using '{UMT_REPLACE_ALL}'")
+                $"Which embedded texture entry to replace with which file. Ex. 'Texture 0=./newTexture.png'. It is possible to replace everything by using '{UMT_REPLACE_ALL}'"),
         };
         replaceCommand.Handler = CommandHandler.Create<ReplaceOptions>(Program.Replace);
 
@@ -297,6 +310,11 @@ public partial class Program : IScriptInterface
             program.RunCSharpCode(options.Line);
         }
 
+        if (options.Lang)
+        {
+            program.Langfiyer();
+        }
+
         // if parameter to save file was given, save the data file
         if (options.Output != null)
             program.SaveDataFile(options.Output.FullName);
@@ -369,9 +387,29 @@ public partial class Program : IScriptInterface
         if (options.Strings)
             program.DumpAllStrings();
 
+        if (options.Strings_Better)
+            program.DumpAllStringsBetter();
+
+        if (options.Lang)
+            program.DumpLang();
+
         // If user wanted to dump embedded textures, dump all of them
         if (options.Textures)
             program.DumpAllTextures();
+
+        if (options.Sprites)
+            program.DumpAllSprites();
+
+        if (options.Sounds)
+            program.DumpAllSounds();
+
+        if (options.FontData?.Length > 0)
+            program.DumpFontData(options.FontData);
+
+        if (options.ASM)
+        {
+            program.DumpAllAssembly();
+        }
 
         return EXIT_SUCCESS;
     }
@@ -459,6 +497,15 @@ public partial class Program : IScriptInterface
                     program.ReplaceTextureWithFile(key, value);
             }
         }
+
+        if (options.Strings != null)
+            program.ReplaceStrings(options.Strings);
+
+        if (options.Strings_Better)
+            program.ReplaceStringsBetter();
+
+        if (options.Lang != null)
+            program.ReplaceLang(options.Lang);
 
         // if parameter to save file was given, save the data file
         if (options.Output != null)
@@ -648,6 +695,237 @@ public partial class Program : IScriptInterface
         File.WriteAllText($"{directory}/strings.txt", combinedText.ToString());
     }
 
+    private void DumpAllStringsBetter()
+    {
+        string directory = Output.FullName;
+
+        StringBuilder json = new StringBuilder("{\r\n    \"Strings\": [\r\n");
+        const string
+            prefix = "        ",
+            suffix = ",\r\n";
+        foreach (string str in Data.Strings.Select(str => str.Content))
+            json.Append(
+                prefix
+                + JsonifyString(str)
+                + suffix);
+        json.Length -= suffix.Length;
+        json.Append("\r\n    ]\r\n}");
+
+        File.WriteAllText(Output.FullName + "\\strings_better.json", json.ToString());
+        ScriptMessage($"Successfully exported to\n{Output.FullName}" + "\\strings_better.json");
+
+        static string JsonifyString(string str)
+        {
+            StringBuilder sb = new StringBuilder();
+            foreach (char ch in str)
+            {    // Characters that JSON requires escaping
+                if (ch == '\"') { sb.Append("\\\""); continue; }
+                if (ch == '\\') { sb.Append("\\\\"); continue; }
+                if (ch == '\b') { sb.Append("\\b"); continue; }
+                if (ch == '\f') { sb.Append("\\f"); continue; }
+                if (ch == '\n') { sb.Append("\\n"); continue; }
+                if (ch == '\r') { sb.Append("\\r"); continue; }
+                if (ch == '\t') { sb.Append("\\t"); continue; }
+                if (Char.IsControl(ch))
+                {
+                    sb.Append("\\u" + Convert.ToByte(ch).ToString("x4"));
+                    continue;
+                }
+
+                sb.Append(ch);
+            }
+            return "\"" + sb.ToString() + "\"";
+        }
+    }
+
+    private void DumpLang()
+    {
+        bool UseID = ScriptQuestion("Dump strings with ID?");
+        string extractedStrings = "{";
+        string[] codeArray = Data.Code.Select(c => c.Name.Content).ToArray();
+        UndertaleCode codo = Data.Code.ByName(codeArray[0]);
+        string corio;
+        int jay = 0;
+        Regex regex = new Regex(@"""((?:[^""\\]|\\.)*)""");
+        SetProgressBar(null, "Scanning Scripts", jay, Data.Scripts.Count);
+        StartProgressBarUpdater();
+        //foreach (string code in codeArray)
+        for (jay = 0; jay < codeArray.Length; jay++)
+        {
+            SetProgressBar(null, "Scanning Scripts", jay, codeArray.Length);
+            codo = Data.Code.ByName(codeArray[jay]);
+            corio = GetDecompiledText(codo);
+            MatchCollection matches = regex.Matches(corio);
+            for (int i = 0; i < matches.Count; i++)
+            {
+                Match match = matches[i];
+                string val = match.Groups[1].Value;
+                if ((!extractedStrings.Contains(val)) && (!val.Contains("gml_GlobalScript")) && (!val.Contains("rm_")) && (!val.Contains("obj_")) && (!val.Contains("bg_")) && (!val.Contains("spr_")) && (!val.Contains("_sound")))
+                {
+                    if ((Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val)) != -1) && UseID)
+                    {
+                        extractedStrings += $"\n\t\"[{Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val))}]{codo.Name.ToString().Replace("\"", "")}_{i}\": \"{val}\",";
+                    }
+                    else if (!UseID)
+                    {
+                        extractedStrings += $"\n\t\"{codo.Name.ToString().Replace("\"", "")}_{i}\": \"{val}\",";
+                    }
+                }
+            }
+        }
+        StopProgressBarUpdater();
+        HideProgressBar();
+        extractedStrings += "\n}";
+        extractedStrings = extractedStrings.Replace("\",\n}", "\"\n}");
+        string exo = UseID ?  "StringsId" : "WStringsID";
+        File.WriteAllText(Environment.CurrentDirectory + $"\\exported_lang_{exo}.json", extractedStrings);
+        ScriptMessage($"\nLang file created sucessfully.\n\nLocation: {Environment.CurrentDirectory + $"\\exported_lang_{exo}.json"}");
+    }
+
+    private void ReplaceLang(string path)
+    {
+        string neru;
+        do
+        {
+            Console.WriteLine("Qual versão usar?\n1.CodeBased, abre script por scring e altera as strings (não o código)\n2.LangBased, cria uma lang interna e a usa como guia para a importação\n3.StringBased, usa como based os \"ids\" das strings");
+            Console.Write("Resposta: ");
+            neru = Console.ReadLine();
+        } while ((neru != "1") && (neru !="2") && (neru !="3"));
+        if (neru == "2")
+            ReplaceLangNew(path);
+        if (neru == "1")
+            ReplaceLangOld(path);
+        if (neru == "3")
+            ReplaceLangThree(path);
+    }
+    private void ReplaceLangThree(string path)
+    {
+        Regex StringsIdRegex = new Regex(@"""\[(.*?)\][^""]*"":");
+        Regex LangsStringsRegex = new Regex(@": ""((?:[^""\\]|\\.)*)""");
+        string[] lines = File.ReadAllLines(path);
+        foreach (string line in lines)
+        {
+            Match strings_id_match = StringsIdRegex.Match(line);
+            Match lang_strings_match = LangsStringsRegex.Match(line);
+            if (strings_id_match.Groups[1].Value != String.Empty)
+            {
+                Data.Strings[int.Parse(strings_id_match.Groups[1].Value)].Content = lang_strings_match.Groups[1].Value;
+            }
+        }
+    }
+
+    private void ReplaceLangNew(string path)
+    {
+        string InternalStringIds = String.Empty;
+        string InternalextractedStrings = String.Empty;
+        string[] codeArray = Data.Code.Select(c => c.Name.Content).ToArray();
+        UndertaleCode codo = Data.Code.ByName(codeArray[0]);
+        string corio;
+        Regex regex = new Regex(@"""((?:[^""\\]|\\.)*)""");
+        Regex StringsIdRegex = new Regex(@"""([^""]*)"":");
+        Regex LangsStringsRegex = new Regex(@": ""((?:[^""\\]|\\.)*)""");
+        foreach (string code in codeArray)
+        {
+            codo = Data.Code.ByName(code);
+            corio = GetDecompiledText(codo);
+            MatchCollection matches = regex.Matches(corio);
+            for (int i = 0; i < matches.Count; i++)
+            {
+                Match match = matches[i];
+                string val = match.Groups[1].Value;
+                if ((!InternalextractedStrings.Contains(val)) && (!val.Contains("gml_GlobalScript")) && (!val.Contains("rm_")) && (!val.Contains("obj_")) && (!val.Contains("bg_")) && (!val.Contains("spr_")) && (!val.Contains("_sound")))
+                {
+                    InternalextractedStrings += $"\n{val}";
+                    InternalStringIds += $"\n{codo.Name.ToString().Replace("\"", "")}_{i}";
+                }
+            }
+        }
+        List<string> InternalStringsIdsList = InternalStringIds.Split("\n").ToList();
+        InternalStringIds = null;
+        List<string> InternalextractedStringsList = InternalextractedStrings.Split("\n").ToList();
+        InternalextractedStrings = null;
+        string[] lines = File.ReadAllLines(path);
+        int DA = 0;
+        SetProgressBar(null, "Importing Lang", DA, lines.Count());
+        StartProgressBarUpdater();
+        foreach (string line in lines)
+        {
+            SetProgressBar(null, "Importing Lang", DA, lines.Count());
+            Match match_ids = StringsIdRegex.Match(line);
+            Match match_strings = LangsStringsRegex.Match(line);
+            //Console.WriteLine(match_ids.Groups[1].Value);
+            if ((match_ids.Groups[1].Value != null) && (match_ids.Groups[1].Value != String.Empty) && (match_ids.Groups[1].Value != ""))
+            {
+                int i = InternalStringsIdsList.IndexOf(match_ids.Groups[1].Value);
+                //Console.WriteLine(i);
+                if (InternalextractedStringsList[i] != match_strings.Groups[1].Value)
+                {
+                    Data.Strings[Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == InternalextractedStringsList[i]))].Content = new(match_strings.Groups[1].Value);
+                }
+            }
+            DA++;
+        }
+        StopProgressBarUpdater();
+        HideProgressBar();
+        ScriptMessage("\nLang imported succesfully\n");
+    }
+
+    private void ReplaceLangOld(string path)
+    {
+        Regex script_names = new Regex(@"""([^""]+)_\d+"":");
+        Regex lang_strings = new Regex(@": \s*""([^""\\]*(\\.[^""\\]*)*)""");
+        Regex strings_id = new Regex(@"_(\d+)""\s*:");
+        Regex script_strings = new Regex(@"""((?:[^""\\]|\\.)*)""");
+        List<string> arustringos = Data.Strings.Where(f => f is not null).Select(f => f.ToString().Replace("\"", "")).ToList();
+        string[] lines = File.ReadAllLines(path);
+        int yab = 0;
+        SetProgressBar(null, "Importing Lang", yab, lines.Count());
+        StartProgressBarUpdater();
+        foreach (string line in lines)
+        {
+            SetProgressBar(null, "Importing Lang", yab, lines.Count());
+            Match scripto_namos = script_names.Match(line);
+            Match strings_langos = lang_strings.Match(line);
+            Match stringos_id = strings_id.Match(line);
+            if (scripto_namos.Groups[1].Value != "")
+            {
+                UndertaleCode codo = Data.Code.ByName(scripto_namos.Groups[1].Value);
+                //Console.WriteLine(scripto_namos.Groups[1].Value);
+                string corio = GetDecompiledText(codo);
+                MatchCollection scripts_stringos = script_strings.Matches(corio);
+                for (int i = 0; i < scripts_stringos.Count; i++)
+                {
+                    //Console.WriteLine(stringos_id.Groups[1].Value + " " + i);
+                    if (stringos_id.Groups[1].Value == $"{i}")
+                    {
+                        //Console.WriteLine("EQUALIDADE");
+                        int aoi = 0;
+                        foreach (string something in arustringos)
+                        {
+                            if (scripts_stringos[i].Groups[1].Value == something)
+                            {
+                                if (scripts_stringos[i].Groups[1].Value != strings_langos.Groups[1].Value)
+                                {
+                                    //Console.WriteLine($"{scripts_stringos[i].Groups[1].Value} : {something} : {strings_langos.Groups[1].Value}");
+                                    Data.Strings[aoi].Content = strings_langos.Groups[1].Value;
+                                    //Console.WriteLine("String Subtituida");
+                                }
+                                //Console.WriteLine($"{scripts_stringos[i].Groups[1].Value} : {strings_langos.Groups[1].Value}");
+                                break;
+                            }
+                            aoi++;
+                        }
+                    }
+                    //Console.WriteLine(i + ": " + scripts_stringos[i]);
+                }
+                yab++;
+            }
+        }
+        StopProgressBarUpdater();
+        HideProgressBar();
+        ScriptMessage("\nLang imported succesfully\n");
+    }
+
     /// <summary>
     /// Dumps all embedded textures in a data file.
     /// </summary>
@@ -668,6 +946,341 @@ public partial class Program : IScriptInterface
             }
             using FileStream fs = new($"{directory}/{texture.Name.Content}.png", FileMode.Create);
             texture.TextureData.Image.SavePng(fs);
+        }
+    }
+
+    private void DumpAllSprites()
+    {
+        bool padded = (ScriptQuestion("Export sprites with padding?"));
+
+        bool useSubDirectories = ScriptQuestion("Export sprites into subdirectories?");
+
+        string texFolder = Environment.CurrentDirectory + "/Export_Sprites" + Path.DirectorySeparatorChar;
+        if (Directory.Exists(texFolder))
+        {
+            ScriptError("A sprites export already exists. Please remove it.", "Error");
+            return;
+        }
+
+        Directory.CreateDirectory(texFolder);
+
+        SetProgressBar(null, "Sprites", 0, Data.Sprites.Count);
+        StartProgressBarUpdater();
+
+        TextureWorker worker = null;
+        using (worker = new())
+        {
+            DumpSprites();
+        }
+
+        StopProgressBarUpdater();
+        HideProgressBar();
+        ScriptMessage($"Export Complete.\n\nLocation: {texFolder}");
+
+        void DumpSprites()
+        {
+            Parallel.ForEach(Data.Sprites, DumpSprite);
+        }
+
+        void DumpSprite(UndertaleSprite sprite)
+        {
+            if (sprite is not null)
+            {
+                string outputFolder = texFolder;
+                if (useSubDirectories)
+                    outputFolder = Path.Combine(outputFolder, sprite.Name.Content);
+                if (sprite.Textures.Count > 0)
+                    Directory.CreateDirectory(outputFolder);
+
+                for (int i = 0; i < sprite.Textures.Count; i++)
+                {
+                    if (sprite.Textures[i]?.Texture != null)
+                        worker.ExportAsPNG(sprite.Textures[i].Texture, Path.Combine(outputFolder, $"{sprite.Name.Content}_{i}.png"), null, padded);
+                }
+            }
+
+            IncrementProgressParallel();
+        }
+
+    }
+
+    private void DumpAllSounds()
+    {
+        string winFolder = Environment.CurrentDirectory + "/"; // The folder data.win is located in.
+        bool usesAGRP = (Data.AudioGroups.Count > 0);
+        string exportedSoundsDir = Path.Combine(winFolder, "Exported_Sounds");
+        Dictionary<string, IList<UndertaleEmbeddedAudio>> loadedAudioGroups = new Dictionary<string, IList<UndertaleEmbeddedAudio>>();
+        // Overwrite Folder Check One
+        if (Directory.Exists(exportedSoundsDir))
+        {
+            bool overwriteCheckOne = ScriptQuestion(@"An 'Exported_Sounds' folder already exists.
+
+Would you like to remove it? This may take some time.
+
+Note: If an error window stating that 'the directory is not empty' appears, please try again or delete the folder manually.");
+            if (!overwriteCheckOne)
+            {
+                ScriptError("An 'Exported_Sounds' folder already exists. Please remove it.", "Error: Export already exists.");
+                return;
+            }
+            Directory.Delete(exportedSoundsDir, true);
+        }
+
+        // EXTERNAL OGG CHECK
+        bool externalOGG_Copy = ScriptQuestion(@"This script exports embedded sounds.
+However, it can also export the external OGGs to a separate folder.
+If you would like to export both, select 'YES'.
+If you just want the embedded sounds, select 'NO'.");
+
+        // Overwrite Folder Check Two
+        if (Directory.Exists(exportedSoundsDir) && externalOGG_Copy)
+        {
+            bool overwriteCheckTwo = ScriptQuestion(@"A 'External_Sounds' folder already exists.
+Would you like to remove it? This may take some time.
+
+Note: If an error window stating that 'the directory is not empty' appears, please try again or delete the folder manually.");
+            if (!overwriteCheckTwo)
+            {
+                ScriptError("A 'External_Sounds' folder already exists. Please remove it.", "Error: Export already exists.");
+                return;
+            }
+
+            Directory.Delete(exportedSoundsDir, true);
+        }
+
+        // Group by audio group check
+        bool groupedExport = usesAGRP && ScriptQuestion("Group sounds by audio group?");
+
+        byte[] EMPTY_WAV_FILE_BYTES = System.Convert.FromBase64String("UklGRiQAAABXQVZFZm10IBAAAAABAAIAQB8AAAB9AAAEABAAZGF0YQAAAAA=");
+        string DEFAULT_AUDIOGROUP_NAME = "audiogroup_default";
+
+        int maxCount = Data.Sounds.Count;
+        SetProgressBar(null, "Sound", 0, maxCount);
+        StartProgressBarUpdater();
+
+        DumpSounds(); // Runs synchronously
+
+        StopProgressBarUpdater();
+        HideProgressBar();
+        if (Directory.Exists(exportedSoundsDir))
+            ScriptMessage("Sounds exported to " + winFolder + " in the 'Exported_Sounds' and 'External_Sounds' folders.");
+        else
+            ScriptMessage("Sounds exported to " + winFolder + " in the 'Exported_Sounds' folder.");
+
+        void IncProgressLocal()
+        {
+            if (GetProgress() < maxCount)
+                IncrementProgress();
+        }
+
+        void MakeFolder(string folderName)
+        {
+            string fullPath = Path.Combine(winFolder, folderName);
+            Directory.CreateDirectory(fullPath);
+        }
+
+        IList<UndertaleEmbeddedAudio> GetAudioGroupData(UndertaleSound sound)
+        {
+            string audioGroupName = sound.AudioGroup is not null ? sound.AudioGroup.Name.Content : DEFAULT_AUDIOGROUP_NAME;
+            if (loadedAudioGroups.ContainsKey(audioGroupName))
+                return loadedAudioGroups[audioGroupName];
+
+            string groupFilePath = Path.Combine(winFolder, "audiogroup" + sound.GroupID + ".dat");
+            if (!File.Exists(groupFilePath))
+                return null;
+
+            try
+            {
+                UndertaleData data;
+                using (var stream = new FileStream(groupFilePath, FileMode.Open, FileAccess.Read))
+                    data = UndertaleIO.Read(stream, warning => ScriptMessage("A warning occurred while trying to load " + audioGroupName + ":\n" + warning));
+
+                loadedAudioGroups[audioGroupName] = data.EmbeddedAudio;
+                return data.EmbeddedAudio;
+            }
+            catch (Exception e)
+            {
+                ScriptMessage("An error occurred while trying to load " + audioGroupName + ":\n" + e.Message);
+                return null;
+            }
+        }
+
+        byte[] GetSoundData(UndertaleSound sound)
+        {
+            if (sound.AudioFile is not null)
+                return sound.AudioFile.Data;
+
+            if (sound.GroupID > Data.GetBuiltinSoundGroupID())
+            {
+                IList<UndertaleEmbeddedAudio> audioGroup = GetAudioGroupData(sound);
+                if (audioGroup is not null)
+                    return audioGroup[sound.AudioID].Data;
+            }
+            return EMPTY_WAV_FILE_BYTES;
+        }
+
+        void DumpSounds()
+        {
+            foreach (UndertaleSound sound in Data.Sounds)
+            {
+                if (sound is not null)
+                {
+                    DumpSound(sound);
+                }
+                else
+                {
+                    IncProgressLocal();
+                }
+            }
+        }
+
+        void DumpSound(UndertaleSound sound)
+        {
+            string soundName = sound.Name.Content;
+            bool flagCompressed = sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsCompressed);
+            bool flagEmbedded = sound.Flags.HasFlag(UndertaleSound.AudioEntryFlags.IsEmbedded);
+            string audioExt = flagEmbedded && !flagCompressed ? ".wav" : ".ogg";
+
+            string soundFilePath = groupedExport ? Path.Combine(exportedSoundsDir, sound.AudioGroup.Name.Content, soundName) : Path.Combine(exportedSoundsDir, soundName);
+
+            MakeFolder("Exported_Sounds");
+            if (groupedExport)
+                MakeFolder(Path.Combine("Exported_Sounds", sound.AudioGroup.Name.Content));
+
+            if (!File.Exists(soundFilePath + audioExt))
+                File.WriteAllBytes(soundFilePath + audioExt, GetSoundData(sound));
+
+            IncProgressLocal();
+        }
+
+    }
+
+    private void DumpFontData(string[] Paranos)
+    {
+        string fntFolder = Environment.CurrentDirectory + "/Export_Fonts";
+        Directory.CreateDirectory(fntFolder);
+        List<string> input = GetFontSelection();
+
+        if (input.Count == 0)
+            return;
+
+        string[] arrayString = input.ToArray();
+
+        SetProgressBar(null, "Fonts", 0, Data.Fonts.Count);
+        StartProgressBarUpdater();
+
+        TextureWorker worker = null;
+        using (worker = new())
+        {
+            DumpFonts();
+        }
+
+        StopProgressBarUpdater();
+        HideProgressBar();
+        ScriptMessage($"Export Complete.\n\nLocation: {fntFolder}");
+
+        void DumpFonts()
+        {
+            foreach (var font in Data.Fonts)
+            {
+                DumpFont(font);
+            }
+        }
+
+        void DumpFont(UndertaleFont font)
+        {
+            if (font is not null && arrayString.Contains(font.Name.ToString().Replace("\"", "")))
+            {
+                worker.ExportAsPNG(font.Texture, Path.Combine(fntFolder, $"{font.Name.Content}.png"));
+                using (StreamWriter writer = new(Path.Combine(fntFolder, $"glyphs_{font.Name.Content}.csv")))
+                {
+                    writer.WriteLine($"{font.DisplayName};{font.EmSize};{font.Bold};{font.Italic};{font.Charset};{font.AntiAliasing};{font.ScaleX};{font.ScaleY}");
+
+                    foreach (var g in font.Glyphs)
+                    {
+                        writer.WriteLine($"{g.Character};{g.SourceX};{g.SourceY};{g.SourceWidth};{g.SourceHeight};{g.Shift};{g.Offset}");
+                    }
+                }
+            }
+
+            IncrementProgressParallel();
+        }
+
+        List<string> GetFontSelection()
+        {
+
+            List<string> selectedFonts = new();
+
+            if (Paranos.Contains("-list"))
+            {
+                for (int i = 0; i < Data.Fonts.Count; i++)
+                {
+                    if (Data.Fonts[i] is not null)
+                        Console.WriteLine($"{Data.Fonts[i].Name.ToString().Replace("\"", "")}");
+                }
+            }
+
+            if (Paranos.Contains(UMT_DUMP_ALL))
+            {
+                return Data.Fonts.Where(f => f is not null).Select(f => f.Name.ToString().Replace("\"", "")).ToList();
+            }
+
+            foreach (string Fonto in Paranos)
+            {
+                if (Fonto != "-list")
+                    selectedFonts.Add(Fonto);
+            }
+
+            return selectedFonts;
+        }
+
+    }
+
+    private void DumpAllAssembly()
+    {
+        string codeFolder = Environment.CurrentDirectory + "\\Export_Assembly";
+        if (Directory.Exists(codeFolder))
+        {
+            ScriptError("an assembly export already exists. please remove it.", "error");
+            return;
+        }
+
+        Directory.CreateDirectory(codeFolder);
+
+        List<UndertaleCode> toDump = Data.Code.Where(c => c.ParentEntry is null).ToList();
+
+        SetProgressBar(null, "Code Entries", 0, toDump.Count);
+        StartProgressBarUpdater();
+
+        DumpCode();
+
+        StopProgressBarUpdater();
+        HideProgressBar();
+        ScriptMessage("Export Complete.\n\nLocation: " + codeFolder);
+
+        void DumpCode()
+        {
+            foreach (var code in toDump)
+            {
+                DumpCodeEntry(code);
+            }
+        }
+
+        void DumpCodeEntry(UndertaleCode code)
+        {
+            if (code is not null)
+            {
+                string path = codeFolder + "\\" + code.Name.Content + ".asm";
+                try
+                {
+                    File.WriteAllText(path, code != null ? code.Disassemble(Data.Variables, Data.CodeLocals?.For(code)) : "");
+                }
+                catch (Exception e)
+                {
+                    File.WriteAllText(path, "/*\nDISASSEMBLY FAILED!\n\n" + e.ToString() + "\n*/");
+                }
+            }
+            IncrementProgressParallel();
         }
     }
 
@@ -812,6 +1425,58 @@ public partial class Program : IScriptInterface
         }
     }
 
+    private void Langfiyer()
+    {
+        string extractedStrings = "[strings]";
+        List<string> codeArray = Data.Code.Select(c => c.Name.Content).ToList();
+        Directory.CreateDirectory(Environment.CurrentDirectory + "\\scriptos");
+        Directory.CreateDirectory(Environment.CurrentDirectory + "\\lang_func");
+        File.WriteAllText(Environment.CurrentDirectory + "\\lang_func\\lang_text.gml", "function lang_text(arg0 = \"\")\n{\n\tini_open(working_directory + \"/lang/lang_file.ini\");\n\tvar texto = ini_read_string(\"strings\", arg0, \"null\");\n\tini_close();\n\treturn texto;\n}");
+        foreach (string yac in Data.Code.Select(c => c.Name.Content).ToList())
+        {
+            if (yac.Contains("gml_Script"))
+            {
+                codeArray.Remove(yac);
+            }
+        }
+        UndertaleCode codo = Data.Code.ByName(codeArray[0]);
+        string corio;
+        int jay = 0;
+        Regex regex = new Regex(@"""((?:[^""\\]|\\.)*)""");
+        SetProgressBar(null, "Scanning Scripts", jay, Data.Scripts.Count);
+        StartProgressBarUpdater();
+        //foreach (string code in codeArray)
+        for (jay = 0; jay < codeArray.Count; jay++)
+        {
+            SetProgressBar(null, "Scanning Scripts", jay, codeArray.Count);
+            codo = Data.Code.ByName(codeArray[jay]);
+            corio = GetDecompiledText(codo);
+            MatchCollection matches = regex.Matches(corio);
+            for (int i = 0; i < matches.Count; i++)
+            {
+                Match match = matches[i];
+                string val = match.Groups[1].Value;
+                if ((Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val)) != -1) && (!val.Contains("gml_GlobalScript")) && (!val.Contains("rm_")) && (!val.Contains("obj_")) && (!val.Contains("bg_")) && (!val.Contains("spr_")) && (!val.Contains("_sound")))
+                {
+                    if (!extractedStrings.Contains(val))
+                    {
+                        extractedStrings += $"\n{Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val))} = \"{val}\"";
+                    }
+                    corio = corio.Replace($"\"{val}\"", $"gml_Script_lang_text_lang_text(\"{Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val))}\")");
+                        Console.WriteLine("String substituida");
+                }
+                
+            }
+            //Console.WriteLine(codeArray[jay]);
+            File.WriteAllText(Environment.CurrentDirectory + "\\scriptos\\" + codeArray[jay] + ".gml", corio);
+        }
+        StopProgressBarUpdater();
+        HideProgressBar();
+        Directory.CreateDirectory(Environment.CurrentDirectory + "\\lang");
+        File.WriteAllText(Environment.CurrentDirectory + "\\lang\\lang_file.ini", extractedStrings);
+        ScriptMessage($"\nLang file created sucessfully.\n\nLocation: {Environment.CurrentDirectory + "\\lang\\lang_file.ini"}");
+    }
+    
     /// <summary>
     /// Replaces an embedded texture with contents from another file.
     /// </summary>
@@ -832,6 +1497,101 @@ public partial class Program : IScriptInterface
 
         texture.TextureData.Image = GMImage.FromPng(File.ReadAllBytes(fileToReplace.FullName));
     }
+
+    private void ReplaceStringsBetter()
+    {
+        string path;
+        do
+        {
+            Console.Write("Please type a path (or drag and drop) to a valid file:\nPath: ");
+            path = RemoveQuotes(Console.ReadLine());
+        } while (!File.Exists(path));
+
+        //string path = PromptChooseDirectory();
+        
+        string file = File.ReadAllText(path);
+        JsonElement json = System.Text.Json.JsonSerializer.Deserialize<JsonElement>(file);
+        JsonElement.ArrayEnumerator array = json.GetProperty("Strings").EnumerateArray();
+        int i = 0;
+        foreach (JsonElement elmnt in array)
+            Data.Strings[i++].Content = elmnt.ToString();
+        ScriptMessage("Successfully imported");
+    }
+
+    private void ReplaceStrings(string stringsPath)
+    {
+        if (!File.Exists(stringsPath))
+        {
+            ScriptError("No 'strings.txt' file exists!", "Error");
+            return;
+        }
+
+        int file_length = 0;
+        string line = "";
+        using (StreamReader reader = new StreamReader(stringsPath))
+        {
+            while ((line = reader.ReadLine()) is not null)
+            {
+                file_length += 1;
+            }
+        }
+
+        int validStringsCount = 0;
+        foreach (var str in Data.Strings)
+        {
+            if (str.Content.Contains("\n") || str.Content.Contains("\r"))
+                continue;
+            validStringsCount += 1;
+        }
+
+        if (file_length < validStringsCount)
+        {
+            ScriptError("ERROR 0: Unexpected end of file at line: " + file_length.ToString() + ". Expected file length was: " + validStringsCount.ToString() + ". No changes have been made.", "Error");
+            return;
+        }
+        else if (file_length > validStringsCount)
+        {
+            ScriptError("ERROR 1: Line count exceeds expected count. Current count: " + file_length.ToString() + ". Expected count: " + validStringsCount.ToString() + ". No changes have been made.", "Error");
+            return;
+        }
+
+        using (StreamReader reader = new StreamReader(stringsPath))
+        {
+            int line_no = 1;
+            line = "";
+            foreach (var str in Data.Strings)
+            {
+                if (str.Content.Contains("\n") || str.Content.Contains("\r"))
+                    continue;
+                if (!((line = reader.ReadLine()) is not null))
+                {
+                    ScriptError("ERROR 2: Unexpected end of file at line: " + line_no.ToString() + ". Expected file length was: " + validStringsCount.ToString() + ". No changes have been made.", "Error");
+                    return;
+                }
+                line_no += 1;
+            }
+        }
+
+        using (StreamReader reader = new StreamReader(stringsPath))
+        {
+            int line_no = 1;
+            line = "";
+            foreach (var str in Data.Strings)
+            {
+                if (str.Content.Contains("\n") || str.Content.Contains("\r"))
+                    continue;
+                if ((line = reader.ReadLine()) is not null)
+                    str.Content = line;
+                else
+                {
+                    ScriptError("ERROR 3: Unexpected end of file at line: " + line_no.ToString() + ". Expected file length was: " + validStringsCount.ToString() + ". All lines within the file have been applied. Please check for errors.", "Error");
+                    return;
+                }
+                line_no += 1;
+            }
+        }
+    }
+
 
     /// <summary>
     /// Evaluates and executes the contents of a file as C# Code.

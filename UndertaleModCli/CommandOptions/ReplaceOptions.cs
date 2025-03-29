@@ -27,6 +27,12 @@ public class ReplaceOptions
     /// </summary>
     public string[] Code { get; set; }
 
+    public string Strings { get; set; }
+
+    public bool Strings_Better { get; set; }
+
+    public string Lang { get; set; }
+
     /// <summary>
     /// Equal separated values of embedded texture and the file to replace the embedded texture with.
     /// </summary>
