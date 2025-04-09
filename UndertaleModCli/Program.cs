@@ -760,7 +760,7 @@ public partial class Program : IScriptInterface
             {
                 Match match = matches[i];
                 string val = match.Groups[1].Value;
-                if ((!extractedStrings.Contains(val)) && (!val.Contains("gml_GlobalScript")) && (!val.Contains("rm_")) && (!val.Contains("obj_")) && (!val.Contains("bg_")) && (!val.Contains("spr_")) && (!val.Contains("_sound")))
+                if ((!extractedStrings.Contains(val)) && (!val.Contains("gml_GlobalScript")) && (!val.Contains("gml_Object")) && (!val.Contains("rm_")) && (!val.Contains("obj_")) && (!val.Contains("bg_")) && (!val.Contains("spr_")) && (!val.Contains("_sound")))
                 {
                     if ((Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val)) != -1) && UseID)
                     {
