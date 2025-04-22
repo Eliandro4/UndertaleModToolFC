@@ -36,4 +36,6 @@ public class LoadOptions
 	/// Determines if Cli should print out verbose logs
 	/// </summary>
 	public bool Verbose { get; set; } = false;
+
+	public bool Lang { get; set; }
 }
