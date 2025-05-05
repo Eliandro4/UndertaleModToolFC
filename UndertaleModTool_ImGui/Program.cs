@@ -54,7 +54,7 @@ namespace UndertaleModTool_ImGui
                             DialogResult FileOpen = Dialog.FileOpen("win,unx,ios,droid,dat");
                             if (!FileOpen.IsError)
                             {
-                                PopUp.create_popup($"{FileOpen.Path}");
+                                PopUp.CreatePopup($"File loaded sucessfully: {FileOpen.Path}", "Sucess");
                             }
                         }
                         if (ImGui.MenuItem("Save", "Ctrl+S", false, false)) { /* salvar desativado */ }
