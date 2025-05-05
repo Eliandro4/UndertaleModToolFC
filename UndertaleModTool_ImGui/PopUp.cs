@@ -15,14 +15,12 @@ namespace UndertaleModTool_ImGui
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                var escapedMessage = message.Replace("'", "'\"'\"'");
-                var command = $"zenity --info --text='{escapedMessage}' --title='{title}'";
+                var command = $"zenity --info --text='{message}' --title='{title}'";
                 ExecuteShellCommand(command);
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                var escapedMessage = message.Replace("\"", "\\\"");
-                var command = $"osascript -e 'display dialog \"{escapedMessage}\" with title \"{title}\"'";
+                var command = $"osascript -e 'display dialog \"{message}\" with title \"{title}\"'";
                 ExecuteShellCommand(command);
             }
             else
