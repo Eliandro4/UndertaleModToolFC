@@ -3,6 +3,7 @@ using Veldrid.Sdl2;
 using Veldrid.StartupUtilities;
 using ImGuiNET;
 using System.Numerics;
+using NativeFileDialogSharp;
 
 namespace UndertaleModTool_ImGui
 {
@@ -48,7 +49,14 @@ namespace UndertaleModTool_ImGui
                     if (ImGui.BeginMenu("File"))
                     {
                         if (ImGui.MenuItem("New", "Ctrl+N")) { /* lógica de novo arquivo */ }
-                        if (ImGui.MenuItem("Open", "Ctrl+O")) { /* lógica de abrir */ }
+                        if (ImGui.MenuItem("Open", "Ctrl+O"))
+                        {
+                            DialogResult FileOpen = Dialog.FileOpen("win,unx,ios,droid,dat");
+                            if (!FileOpen.IsError)
+                            {
+                                Console.WriteLine(FileOpen.Path);
+                            }
+                        }
                         if (ImGui.MenuItem("Save", "Ctrl+S", false, false)) { /* salvar desativado */ }
 
                         ImGui.Separator();
