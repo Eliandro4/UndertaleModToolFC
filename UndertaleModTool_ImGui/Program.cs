@@ -4,7 +4,7 @@ using Veldrid.StartupUtilities;
 using ImGuiNET;
 using System.Numerics;
 
-namespace UndertaleModTool
+namespace UndertaleModTool_ImGui
 {
     static class Program
     {
@@ -41,7 +41,7 @@ namespace UndertaleModTool
                 // Define tamanho da janela principal
                 ImGui.SetNextWindowSize(new Vector2(window.Width, window.Height));
                 ImGui.SetNextWindowPos(Vector2.Zero);
-                ImGui.Begin("UndertaleModTool", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.MenuBar);
+                ImGui.Begin("UndertaleModTool", ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.MenuBar | ImGuiWindowFlags.NoScrollbar);
 
                 if (ImGui.BeginMenuBar())
                 {
@@ -93,41 +93,42 @@ namespace UndertaleModTool
 
                 // Painel da esquerda (navegação)
                 ImGui.BeginChild("LeftPanel", new Vector2(250, window.Height - 30), true);
-                ImGui.Text("Data");
-
-                if (ImGui.TreeNode("General info")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Global init")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Audio groups")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Sounds")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Sprites")) { ImGui.Text("Player"); ImGui.TreePop(); }
-                if (ImGui.TreeNode("Backgrounds & Tile sets")) { ImGui.Text("Player"); ImGui.TreePop(); }
-                if (ImGui.TreeNode("Paths")) { ImGui.Text("Player"); ImGui.TreePop(); }
-                if (ImGui.TreeNode("Scripts"))
+                if (ImGui.TreeNodeEx("Data", ImGuiTreeNodeFlags.DefaultOpen))
                 {
-                    /*
-                    if (ImGui.TreeNode("Variables")) { ImGui.Text("var_player_hp"); ImGui.TreePop(); }
-                    if (ImGui.TreeNode("Functions")) { ImGui.Text("func_attack"); ImGui.TreePop(); }
-                    */
-                    ImGui.TreePop();
+                    if (ImGui.TreeNode("General info")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Global init")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Audio groups")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Sounds")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Sprites")) { ImGui.Text("Player"); ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Backgrounds & Tile sets")) { ImGui.Text("Player"); ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Paths")) { ImGui.Text("Player"); ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Scripts"))
+                    {
+                        /*
+                        if (ImGui.TreeNode("Variables")) { ImGui.Text("var_player_hp"); ImGui.TreePop(); }
+                        if (ImGui.TreeNode("Functions")) { ImGui.Text("func_attack"); ImGui.TreePop(); }
+                        */
+                        ImGui.TreePop();
+                    }
+                    if (ImGui.TreeNode("Shaders")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Fonts")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Timelines")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Game objects")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Rooms")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Extensions")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Texture page items")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Code")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Variables")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Functions")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Code locals")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Strings")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Embedded textures")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Embedded audio")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Texture group info")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Embedded images")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Particles system")) { ImGui.TreePop(); }
+                    if (ImGui.TreeNode("Particles system emitters")) { ImGui.TreePop(); }
                 }
-                if (ImGui.TreeNode("Shaders")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Fonts")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Timelines")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Game objects")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Rooms")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Extensions")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Texture page items")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Code")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Variables")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Functions")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Code locals")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Strings")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Embedded textures")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Embedded audio")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Texture group info")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Embedded images")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Particles system")) { ImGui.TreePop(); }
-                if (ImGui.TreeNode("Particles system emitters")) { ImGui.TreePop(); }
 
                 ImGui.EndChild();
 
