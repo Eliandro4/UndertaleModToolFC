@@ -22,6 +22,7 @@ using UndertaleModLib.Compiler;
 using UndertaleModLib.Decompiler;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Text.Json.Serialization;
 
 namespace UndertaleModCli;
 
@@ -122,7 +123,8 @@ public partial class Program : IScriptInterface
             new Option<string>(new[] { "-l", "--line" }, "Run C# string. Runs AFTER everything else"),
             //TODO: make interactive another Command
             new Option<bool>(new[] { "-i", "--interactive" }, "Interactive menu launch"),
-            new Option<bool>(new[] { "-lf", "--langfiyer" }, "Langfy the game")
+            new Option<bool>(new[] { "-lf", "--langfiyer" }, "Langfy the game"),
+            new Option<bool>(new[] { "-t", "--textures" }, "Load texture files")
         };
         loadCommand.Handler = CommandHandler.Create<LoadOptions>(Program.Load);
 
@@ -313,6 +315,11 @@ public partial class Program : IScriptInterface
         if (options.Lang)
         {
             program.Langfiyer();
+        }
+
+        if (options.Texture)
+        {
+            program.ReplaceTexturesNew();
         }
 
         // if parameter to save file was given, save the data file
@@ -928,6 +935,21 @@ public partial class Program : IScriptInterface
         StopProgressBarUpdater();
         HideProgressBar();
         ScriptMessage("\nLang imported succesfully\n");
+    }
+
+    private void ReplaceTexturesNew()
+    {
+        string path = PromptChooseDirectory();
+        string[] files = Directory.GetFiles(path);
+        List<string> images = new List<string>();
+        foreach (string file in files)
+        {
+            if (file.Contains(".png"))
+            {
+                images.Add(file);
+                Console.WriteLine(file);
+            }
+        }
     }
 
     /// <summary>

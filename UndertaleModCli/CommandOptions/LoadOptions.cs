@@ -38,4 +38,6 @@ public class LoadOptions
 	public bool Verbose { get; set; } = false;
 
 	public bool Lang { get; set; }
+
+	public bool Texture { get; set; }
 }
