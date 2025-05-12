@@ -23,6 +23,7 @@ using UndertaleModLib.Decompiler;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Text.Json.Serialization;
+using ImageMagick;
 
 namespace UndertaleModCli;
 
@@ -945,6 +946,9 @@ public partial class Program : IScriptInterface
         List<string> images_files = new List<string>();
         List<string> images = new List<string>();
         List<string> frames = new List<string>();
+        string LogExeptions = String.Empty;
+        string RandomLog = String.Empty;
+        string Fulllog = String.Empty;
         foreach (string file in files)
         {
             Match frame_match = frame_regex.Match(file);
@@ -959,8 +963,31 @@ public partial class Program : IScriptInterface
             int sprite_index = Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]));
             if (sprite_index != -1)
             {
-                Console.WriteLine($"{images[i]}[{frames[i]}] : Data.Sprites[{sprite_index}]_[{frames[i]}] : Data.TexturePageItems[{Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[int.Parse(frames[i])].Texture)}]");
-                //Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]))].Name.Content);
+                int pageitem_index = Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[int.Parse(frames[i])].Texture);
+                if (pageitem_index != -1)
+                {
+                    RandomLog += $"{images[i]}[{frames[i]}] : Data.Sprites[{sprite_index}] \"frame[{frames[i]}]\" : Data.TexturePageItems[{pageitem_index}]";
+                    //Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]))].Name.Content);
+                    using MagickImage idk = new MagickImage(images_files[i]);
+                    if ((idk.Width == Data.TexturePageItems[pageitem_index].TargetWidth) && (idk.Height == Data.TexturePageItems[pageitem_index].TargetHeight))
+                    {
+                        Data.TexturePageItems[pageitem_index].ReplaceTexture(idk);
+                    }
+                    else
+                    {
+                        LogExeptions += $"Data.TexturePageItems[{pageitem_index}] and {images_files[i]} have diferent sizes\n";
+                        LogExeptions += $"Data.TexturePageItems[{pageitem_index}.TargetWidth = {Data.TexturePageItems[pageitem_index].TargetWidth}] | image.Width = {idk.Width}\n";
+                        LogExeptions += $"Data.TexturePageItems[{pageitem_index}.TargetHeight = {Data.TexturePageItems[pageitem_index].TargetHeight}] | image.Height = {idk.Height}\n";
+                    }
+                }
+                else
+                {
+                    LogExeptions += $"Data.TexturePageItems doesn't have a definition for \"{images[i]}[{frames[i]}]\"\n";
+                }
+            }
+            else
+            {
+                LogExeptions += $"Data.Sprites doesn't have a definition for \"{images[i]}\"\n";
             }
         }
     }
@@ -1516,7 +1543,7 @@ Note: If an error window stating that 'the directory is not empty' appears, plea
         File.WriteAllText(Environment.CurrentDirectory + "\\lang\\lang_file.ini", extractedStrings);
         ScriptMessage($"\nLang file created sucessfully.\n\nLocation: {Environment.CurrentDirectory + "\\lang\\lang_file.ini"}");
     }
-    
+
     /// <summary>
     /// Replaces an embedded texture with contents from another file.
     /// </summary>
