@@ -953,7 +953,7 @@ public partial class Program : IScriptInterface
         {
             Match frame_match = frame_regex.Match(file);
             frames.Add(frame_match.Groups[1].Value);
-            images.Add(file.Replace(".png", "").Replace(path + "/", "").Replace($"_{frame_match.Groups[1].Value}", ""));
+            images.Add(file.Replace(".png", "").Replace(path + "/", "").Replace(path, "").Replace($"_{frame_match.Groups[1].Value}", ""));
             images_files.Add(file);
         }
 

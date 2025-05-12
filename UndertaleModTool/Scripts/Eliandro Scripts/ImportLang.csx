@@ -4,6 +4,7 @@ using System.IO;
 using UndertaleModLib;
 using UndertaleModLib.Models;
 
+EnsureDataLoaded();
 Regex StringsIdRegex = new Regex(@"""\[(.*?)\][^""]*"":");
 Regex LangsStringsRegex = new Regex(@": ""((?:[^""\\]|\\.)*)""");
 string path = PromptLoadFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
