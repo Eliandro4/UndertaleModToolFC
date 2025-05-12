@@ -968,7 +968,7 @@ public partial class Program : IScriptInterface
                 {
                     RandomLog += $"{images[i]}[{frames[i]}] : Data.Sprites[{sprite_index}] \"frame[{frames[i]}]\" : Data.TexturePageItems[{pageitem_index}]";
                     //Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]))].Name.Content);
-                    using MagickImage idk = new MagickImage(images_files[i]);
+                    using MagickImage idk = TextureWorker.ReadBGRAImageFromFile(images_files[i]);
                     if ((idk.Width == Data.TexturePageItems[pageitem_index].TargetWidth) && (idk.Height == Data.TexturePageItems[pageitem_index].TargetHeight))
                     {
                         Data.TexturePageItems[pageitem_index].ReplaceTexture(idk);
