@@ -990,6 +990,15 @@ public partial class Program : IScriptInterface
                 LogExeptions += $"Data.Sprites doesn't have a definition for \"{images[i]}\"\n";
             }
         }
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += "-------------------EXCEPTIONS!--------------------\n";
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += LogExeptions;
+        Fulllog += "\n--------------------------------------------------\n";
+        Fulllog += "-------------------RANDOM_LOG!--------------------\n";
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += RandomLog;
+        File.WriteAllText(Path.Combine(path, "Log.txt"), Fulllog);
     }
 
     /// <summary>
