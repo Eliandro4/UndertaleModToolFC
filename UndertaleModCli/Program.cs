@@ -940,18 +940,18 @@ public partial class Program : IScriptInterface
     private void ReplaceTexturesNew()
     {
         string path = PromptChooseDirectory();
-        string[] files = Directory.GetFiles(path);
+        var files = Directory.EnumerateFiles(path, "*.png", SearchOption.AllDirectories);
+        List<string> images_files = new List<string>();
         List<string> images = new List<string>();
         foreach (string file in files)
         {
-            if (file.Contains(".png"))
-            {
-                images.Add(file.Replace(".png", ""));
-                Console.WriteLine(file);
-            }
+            images.Add(file.Replace(".png", "").Replace(path + "/", ""));
+            images_files.Add(file);
         }
+
         foreach (string sprite in images)
         {
+            Console.WriteLine($"{sprite} : Data.Sprites[{Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == sprite))}]");
             if (Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == sprite)) != -1)
             {
                 Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == sprite))].Name.Content);
