@@ -939,22 +939,28 @@ public partial class Program : IScriptInterface
 
     private void ReplaceTexturesNew()
     {
+        Regex frame_regex = new Regex(@"_(\d+).png");
         string path = PromptChooseDirectory();
         var files = Directory.EnumerateFiles(path, "*.png", SearchOption.AllDirectories);
         List<string> images_files = new List<string>();
         List<string> images = new List<string>();
+        List<string> frames = new List<string>();
         foreach (string file in files)
         {
-            images.Add(file.Replace(".png", "").Replace(path + "/", ""));
+            Match frame_match = frame_regex.Match(file);
+            frames.Add(frame_match.Groups[1].Value);
+            images.Add(file.Replace(".png", "").Replace(path + "/", "").Replace($"_{frame_match.Groups[1].Value}", ""));
             images_files.Add(file);
         }
 
-        foreach (string sprite in images)
+        for (int i = 0; i < images.Count; i++)
         {
-            Console.WriteLine($"{sprite} : Data.Sprites[{Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == sprite))}]");
-            if (Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == sprite)) != -1)
+            //Console.WriteLine($"{sprite} : Data.Sprites[{Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == sprite))}]");
+            int sprite_index = Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]));
+            if (sprite_index != -1)
             {
-                Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == sprite))].Name.Content);
+                Console.WriteLine($"{images[i]}[{frames[i]}] : Data.Sprites[{sprite_index}]_[{frames[i]}] : Data.TexturePageItems[{Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[int.Parse(frames[i])].Texture)}]");
+                //Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]))].Name.Content);
             }
         }
     }
