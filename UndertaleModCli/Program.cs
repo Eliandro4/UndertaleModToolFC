@@ -946,8 +946,15 @@ public partial class Program : IScriptInterface
         {
             if (file.Contains(".png"))
             {
-                images.Add(file);
+                images.Add(file.Replace(".png", ""));
                 Console.WriteLine(file);
+            }
+        }
+        foreach (string sprite in images)
+        {
+            if (Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == sprite)) != -1)
+            {
+                Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == sprite))].Name.Content);
             }
         }
     }
