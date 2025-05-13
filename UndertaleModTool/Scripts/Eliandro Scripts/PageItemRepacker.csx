@@ -33,9 +33,9 @@ public void ReplaceTexturesNew()
             frames.Add(frame_match.Success ? frame_match.Groups[1].Value : "0");
             images.Add(filename_match.Groups[1].Value);
             images_files.Add(file);
-            if (!frame_match.Success)
+            if ((!frame_match.Success) && (Log))
             {
-                WarnLog = Log ? (WarnLog + $"file:{file} doesn't have and texture index. Assuming 0.\n") : String.Empty;
+                WarnLog += $"file:{file} doesn't have and texture index. Assuming 0.\n";
             }
         }
 
@@ -55,7 +55,7 @@ public void ReplaceTexturesNew()
                     {
                         Data.TexturePageItems[pageitem_index].ReplaceTexture(idk);
                     }
-                    else
+                    else if (Log)
                     {
                         string Exceptchones = new String.Empty;
                         Exceptchones += $"Data.TexturePageItems[{pageitem_index}] and {images_files[i]} have diferent sizes\n";
@@ -63,22 +63,22 @@ public void ReplaceTexturesNew()
                         Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetHeight = {Data.TexturePageItems[pageitem_index].TargetHeight}] | image.Height = {idk.Height}\n";
                         if (!images_files[i].Contains("uneconomical"))
                         {
-                            LogExeptions = Log ? (LogExeptions + Exceptchones) : String.Empty;
+                            LogExeptions += Exceptchones;
                         }
                         else
                         {
-                            UneconomicaLog = Log ? (UneconomicaLog + Exceptchones) : String.Empty;
+                            UneconomicaLog += Exceptchones;
                         }
                     }
                 }
-                else
+                else if (Log)
                 {
-                    LogExeptions = Log ? (LogExeptions + $"Data.TexturePageItems doesn't have a definition for \"{images[i]}[{frames[i]}]\"\n") : String.Empty;
+                    LogExeptions += $"Data.TexturePageItems doesn't have a definition for \"{images[i]}[{frames[i]}]\"\n";
                 }
             }
-            else
+            else if (log)
             {
-                LogExeptions = Log ? (LogExeptions + $"Data.Sprites doesn't have a definition for \"{images[i]}\"\n") : String.Empty;
+                LogExeptions += $"Data.Sprites doesn't have a definition for \"{images[i]}\"\n";
             }
         }
 
