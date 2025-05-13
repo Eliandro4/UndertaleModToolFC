@@ -14,6 +14,7 @@ ReplaceTexturesNew();
 public void ReplaceTexturesNew()
     {
         Regex frame_regex = new Regex(@"_(\d+).png");
+        Regex filename = new Regex(@"^(?:[a-zA-Z_]+?)(?=(?:_\d+)?(?: \w+\.png|\.png$))");
         string path = PromptChooseDirectory();
         var files = Directory.EnumerateFiles(path, "*.png", SearchOption.AllDirectories);
         List<string> images_files = new List<string>();
@@ -25,8 +26,9 @@ public void ReplaceTexturesNew()
         foreach (string file in files)
         {
             Match frame_match = frame_regex.Match(file);
-            frames.Add(frame_match.Groups[1].Value);
-            images.Add(file.Replace(".png", "").Replace(path + "/", "").Replace(path, "").Replace($"_{frame_match.Groups[1].Value}", ""));
+            Match filename_match = filename.Match(file);
+            frames.Add(frame_match.Success ? frame_match.Groups[1].Value : "0");
+            images.Add(filename_match.Groups[1].Value);
             images_files.Add(file);
         }
 
