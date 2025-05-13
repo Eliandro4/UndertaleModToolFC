@@ -20,10 +20,12 @@ public void ReplaceTexturesNew()
         List<string> images_files = new List<string>();
         List<string> images = new List<string>();
         List<string> frames = new List<string>();
+        bool Log = ScriptQuestion("Enable Logging?");
         string LogExeptions = String.Empty;
         string RandomLog = String.Empty;
         string Fulllog = String.Empty;
         string UneconomicaLog = String.Empty;
+        string WarnLog = String.Empty
         foreach (string file in files)
         {
             Match frame_match = frame_regex.Match(file);
@@ -31,6 +33,10 @@ public void ReplaceTexturesNew()
             frames.Add(frame_match.Success ? frame_match.Groups[1].Value : "0");
             images.Add(filename_match.Groups[1].Value);
             images_files.Add(file);
+            if (!frame_match.Success)
+            {
+                WarnLog = Log ? (WarnLog + $"file:{file} doesn't have and texture index. Assuming 0.\n") : String.Empty;
+            }
         }
 
         for (int i = 0; i < images.Count; i++)
@@ -42,7 +48,7 @@ public void ReplaceTexturesNew()
                 int pageitem_index = Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[int.Parse(frames[i])].Texture);
                 if (pageitem_index != -1)
                 {
-                    RandomLog += $"{images[i]}[{frames[i]}] : Data.Sprites[{sprite_index}] \"frame[{frames[i]}]\" : Data.TexturePageItems[{pageitem_index}]";
+                    RandomLog = Log ? (RandomLog + $"{images[i]}[{frames[i]}] : Data.Sprites[{sprite_index}] \"frame[{frames[i]}]\" : Data.TexturePageItems[{pageitem_index}]") : String.Empty;
                     //Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]))].Name.Content);
                     using MagickImage idk = TextureWorker.ReadBGRAImageFromFile(images_files[i]);
                     if ((idk.Width == Data.TexturePageItems[pageitem_index].TargetWidth) && (idk.Height == Data.TexturePageItems[pageitem_index].TargetHeight))
@@ -51,28 +57,28 @@ public void ReplaceTexturesNew()
                     }
                     else
                     {
-                        string Exceptchones = new string.Empty;
+                        string Exceptchones = new String.Empty;
                         Exceptchones += $"Data.TexturePageItems[{pageitem_index}] and {images_files[i]} have diferent sizes\n";
                         Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetWidth = {Data.TexturePageItems[pageitem_index].TargetWidth}] | image.Width = {idk.Width}\n";
                         Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetHeight = {Data.TexturePageItems[pageitem_index].TargetHeight}] | image.Height = {idk.Height}\n";
                         if (!images_files[i].Contains("uneconomical"))
                         {
-                            LogExeptions += Exceptchones;
+                            LogExeptions = Log ? (LogExeptions + Exceptchones) : String.Empty;
                         }
                         else
                         {
-                            UneconomicaLog += Exceptchones;
+                            UneconomicaLog = Log ? (UneconomicaLog + Exceptchones) : String.Empty;
                         }
                     }
                 }
                 else
                 {
-                    LogExeptions += $"Data.TexturePageItems doesn't have a definition for \"{images[i]}[{frames[i]}]\"\n";
+                    LogExeptions = Log ? (LogExeptions + $"Data.TexturePageItems doesn't have a definition for \"{images[i]}[{frames[i]}]\"\n") : String.Empty;
                 }
             }
             else
             {
-                LogExeptions += $"Data.Sprites doesn't have a definition for \"{images[i]}\"\n";
+                LogExeptions = Log ? (LogExeptions + $"Data.Sprites doesn't have a definition for \"{images[i]}\"\n") : String.Empty;
             }
         }
 
@@ -90,6 +96,14 @@ public void ReplaceTexturesNew()
             Fulllog += "-------------------RANDOM_LOG!--------------------\n";
             Fulllog += "--------------------------------------------------\n";
             Fulllog += RandomLog;
+        }
+
+        if (!(WarnLog == String.Empty))
+        {
+            Fulllog += "--------------------------------------------------\n";
+            Fulllog += "-------------------WARNINGS!--------------------\n";
+            Fulllog += "--------------------------------------------------\n";
+            Fulllog += WarnLog;
         }
 
         if (!(UneconomicaLog == String.Empty))
