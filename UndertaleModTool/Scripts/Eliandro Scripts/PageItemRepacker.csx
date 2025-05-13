@@ -29,21 +29,22 @@ public void ReplaceTexturesNew()
         string RegexFileErrorLog = String.Empty;
         foreach (string file in files)
         {
+            string filo = file.Replace(" uneconomical", "").Replace("  redimensioned", "").Replace("_uneconomical", "");
             Match frame_match = frame_regex.Match(file);
-            Match filename_match = filename.Match(file.Split("/").Last());
+            Match filename_match = filename.Match(filo.Split("/").Last());
             {
                 if (!filename_match.Success)
                 {
-                    filename_match = filename.Match(file.Split("\\").Last());
+                    filename_match = filename.Match(filo.Split("\\").Last());
                     if (!filename_match.Success)
                     {
-                        RegexFileErrorLog += $"\"{file}\" coudn't pass the regex for some reason\n\tpattern 1: \"{file.Split("/").Last()}\"\n\tpattern 2: \"{file.Split("\\").Last()}\" ";
+                        RegexFileErrorLog += $"\"{file}\" coudn't pass the regex for some reason\n\tpattern 1: \"{filo.Split("/").Last()}\"\n\tpattern 2: \"{filo.Split("\\").Last()}\"\n";
                         continue;
                     }
                 }
             }
             frames.Add(frame_match.Success ? frame_match.Groups[1].Value : "0");
-            images.Add(filename_match.Value.Replace("_uneconomical", ""));
+            images.Add(filename_match.Value);
             images_files.Add(file);
             if ((!frame_match.Success) && (Log))
             {
