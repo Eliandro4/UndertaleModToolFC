@@ -25,13 +25,13 @@ public void ReplaceTexturesNew()
         string RandomLog = String.Empty;
         string Fulllog = String.Empty;
         string UneconomicaLog = String.Empty;
-        string WarnLog = String.Empty
+        string WarnLog = String.Empty;
         foreach (string file in files)
         {
             Match frame_match = frame_regex.Match(file);
-            Match filename_match = filename.Match(file);
+            Match filename_match = filename.Match(file.Split("/").Last());
             frames.Add(frame_match.Success ? frame_match.Groups[1].Value : "0");
-            images.Add(filename_match.Groups[1].Value);
+            images.Add(filename_match.Value);
             images_files.Add(file);
             if ((!frame_match.Success) && (Log))
             {
@@ -57,7 +57,7 @@ public void ReplaceTexturesNew()
                     }
                     else if (Log)
                     {
-                        string Exceptchones = new String.Empty;
+                        string Exceptchones = String.Empty;
                         Exceptchones += $"Data.TexturePageItems[{pageitem_index}] and {images_files[i]} have diferent sizes\n";
                         Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetWidth = {Data.TexturePageItems[pageitem_index].TargetWidth}] | image.Width = {idk.Width}\n";
                         Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetHeight = {Data.TexturePageItems[pageitem_index].TargetHeight}] | image.Height = {idk.Height}\n";
@@ -76,7 +76,7 @@ public void ReplaceTexturesNew()
                     LogExeptions += $"Data.TexturePageItems doesn't have a definition for \"{images[i]}[{frames[i]}]\"\n";
                 }
             }
-            else if (log)
+            else if (Log)
             {
                 LogExeptions += $"Data.Sprites doesn't have a definition for \"{images[i]}\"\n";
             }
