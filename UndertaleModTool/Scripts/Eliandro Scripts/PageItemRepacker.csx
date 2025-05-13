@@ -23,6 +23,7 @@ public void ReplaceTexturesNew()
         string LogExeptions = String.Empty;
         string RandomLog = String.Empty;
         string Fulllog = String.Empty;
+        string UneconomicaLog = String.Empty;
         foreach (string file in files)
         {
             Match frame_match = frame_regex.Match(file);
@@ -50,9 +51,18 @@ public void ReplaceTexturesNew()
                     }
                     else
                     {
-                        LogExeptions += $"Data.TexturePageItems[{pageitem_index}] and {images_files[i]} have diferent sizes\n";
-                        LogExeptions += $"Data.TexturePageItems[{pageitem_index}.TargetWidth = {Data.TexturePageItems[pageitem_index].TargetWidth}] | image.Width = {idk.Width}\n";
-                        LogExeptions += $"Data.TexturePageItems[{pageitem_index}.TargetHeight = {Data.TexturePageItems[pageitem_index].TargetHeight}] | image.Height = {idk.Height}\n";
+                        string Exceptchones = new string.Empty;
+                        Exceptchones += $"Data.TexturePageItems[{pageitem_index}] and {images_files[i]} have diferent sizes\n";
+                        Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetWidth = {Data.TexturePageItems[pageitem_index].TargetWidth}] | image.Width = {idk.Width}\n";
+                        Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetHeight = {Data.TexturePageItems[pageitem_index].TargetHeight}] | image.Height = {idk.Height}\n";
+                        if (!images_files[i].Contains("uneconomical"))
+                        {
+                            LogExeptions += Exceptchones;
+                        }
+                        else
+                        {
+                            UneconomicaLog += Exceptchones;
+                        }
                     }
                 }
                 else
@@ -65,13 +75,33 @@ public void ReplaceTexturesNew()
                 LogExeptions += $"Data.Sprites doesn't have a definition for \"{images[i]}\"\n";
             }
         }
-        Fulllog += "--------------------------------------------------\n";
-        Fulllog += "-------------------EXCEPTIONS!--------------------\n";
-        Fulllog += "--------------------------------------------------\n";
-        Fulllog += LogExeptions;
-        Fulllog += "\n--------------------------------------------------\n";
-        Fulllog += "-------------------RANDOM_LOG!--------------------\n";
-        Fulllog += "--------------------------------------------------\n";
-        Fulllog += RandomLog;
+
+        if (!(LogExeptions == String.Empty))
+        {
+            Fulllog += "--------------------------------------------------\n";
+            Fulllog += "-------------------EXCEPTIONS!--------------------\n";
+            Fulllog += "--------------------------------------------------\n";
+            Fulllog += LogExeptions;
+        }
+
+        if (!(RandomLog == String.Empty))
+        {
+            Fulllog += "\n--------------------------------------------------\n";
+            Fulllog += "-------------------RANDOM_LOG!--------------------\n";
+            Fulllog += "--------------------------------------------------\n";
+            Fulllog += RandomLog;
+        }
+
+        if (!(UneconomicaLog == String.Empty))
+        {
+            Fulllog += "\n--------------------------------------------------\n";
+            Fulllog += "-------------------UNECONOMICAL!------------------\n";
+            Fulllog += "--------------------------------------------------\n";
+            Fulllog += UneconomicaLog;
+        }
+
+        if (!(Fulllog == String.Empty))
+        {
         File.WriteAllText(Path.Combine(path, "Log.txt"), Fulllog);
+        }
     }
