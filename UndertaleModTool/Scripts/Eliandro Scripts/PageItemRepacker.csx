@@ -8,6 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using ImageMagick;
+using Microsoft.CodeAnalysis.Scripting;
 
 EnsureDataLoaded();
 
@@ -53,7 +54,14 @@ foreach (string file in files)
     }
 }
 
-for (int i = 0; i < images.Count; i++)
+await ReplacePageItems();
+
+async Task ReplacePageItems()
+{
+    await Task.Run(() => Parallel.For(0, images.Count, i => {ReplacePageItem(i);}));
+}
+
+void ReplacePageItem(int i)
 {
     //Console.WriteLine($"{sprite} : Data.Sprites[{Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == sprite))}]");
     int sprite_index = Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]));
