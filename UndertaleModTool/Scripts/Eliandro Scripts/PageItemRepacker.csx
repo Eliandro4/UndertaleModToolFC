@@ -14,7 +14,7 @@ ReplaceTexturesNew();
 public void ReplaceTexturesNew()
     {
         Regex frame_regex = new Regex(@"_(\d+).png");
-        Regex filename = new Regex(@"^(?:[a-zA-Z_]+?)(?=(?:_\d+)?(?: \w+\.png|\.png$))");
+        Regex filename = new Regex(@"^(?:[a-zA-Z_\d]+?)(?=(?:_[1-9]?\d)?(?: \w+\.png$|\.png$))");
         string path = PromptChooseDirectory();
         var files = Directory.EnumerateFiles(path, "*.png", SearchOption.AllDirectories);
         List<string> images_files = new List<string>();
@@ -22,11 +22,13 @@ public void ReplaceTexturesNew()
         List<string> frames = new List<string>();
         bool Log = ScriptQuestion("Enable Logging?");
         string LogExeptions = String.Empty;
-        string RandomLog = String.Empty;
+        string RandomLog = "SPRITE;TEXTURE;TEXTURE INDEX;PAGE ITEM\n";
         string Fulllog = String.Empty;
         string UneconomicaLog = String.Empty;
         string WarnLog = String.Empty;
         string RegexFileErrorLog = String.Empty;
+        bool BoolRandomLog = false;
+        bool WarningLog = false;
         foreach (string file in files)
         {
             string filo = file.Replace(" uneconomical", "").Replace("  redimensioned", "").Replace("_uneconomical", "");
@@ -46,7 +48,7 @@ public void ReplaceTexturesNew()
             frames.Add(frame_match.Success ? frame_match.Groups[1].Value : "0");
             images.Add(filename_match.Value);
             images_files.Add(file);
-            if ((!frame_match.Success) && (Log))
+            if ((!frame_match.Success) && (Log) && (WarningLog))
             {
                 WarnLog += $"file:{file} doesn't have and texture index. Assuming 0.\n";
             }
@@ -61,7 +63,7 @@ public void ReplaceTexturesNew()
                 int pageitem_index = Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[int.Parse(frames[i])].Texture);
                 if (pageitem_index != -1)
                 {
-                    RandomLog = Log ? (RandomLog + $"{images[i]}[{frames[i]}] : Data.Sprites[{sprite_index}] \"frame[{frames[i]}]\" : Data.TexturePageItems[{pageitem_index}]\n") : String.Empty;
+                    RandomLog = BoolRandomLog ? (RandomLog + $"\"{images[i]}[{frames[i]}]\";\"Data.Sprites[{sprite_index}].Textures[{frames[i]}]\";\"{frames[i]}\";\"Data.TexturePageItems[{pageitem_index}]\"\n") : String.Empty;
                     //Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]))].Name.Content);
                     using MagickImage idk = TextureWorker.ReadBGRAImageFromFile(images_files[i]);
                     if ((idk.Width == Data.TexturePageItems[pageitem_index].TargetWidth) && (idk.Height == Data.TexturePageItems[pageitem_index].TargetHeight))
@@ -111,15 +113,12 @@ public void ReplaceTexturesNew()
             Fulllog += RegexFileErrorLog;
         }
 
-        if (!(RandomLog == String.Empty))
+        if (BoolRandomLog)
         {
-            Fulllog += "--------------------------------------------------\n";
-            Fulllog += "-------------------RANDOM_LOG!--------------------\n";
-            Fulllog += "--------------------------------------------------\n";
-            Fulllog += RandomLog;
+            File.WriteAllText(Path.Combine(path, "RandomLog.csv"), RandomLog);
         }
 
-        if (!(WarnLog == String.Empty))
+        if (WarningLog)
         {
             Fulllog += "--------------------------------------------------\n";
             Fulllog += "--------------------WARNINGS!---------------------\n";
