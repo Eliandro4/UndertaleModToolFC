@@ -19,9 +19,22 @@ Regex script_strings = new Regex(@"""((?:[^""\\]|\\.)*)""");
 List<string> arustringos = Data.Strings.Where(f => f is not null).Select(f => f.ToString().Replace("\"", "")).ToList();
 string path = PromptLoadFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
 string[] lines = File.ReadAllLines(path);
+
 SetProgressBar(null, "Importing Lang", 0, lines.Length);
 StartProgressBarUpdater();
-foreach (string line in lines)
+
+await TaskImportLang(lines);
+
+await StopProgressBarUpdater();
+HideProgressBar();
+ScriptMessage("\nLang imported succesfully\n");
+
+async Task TaskImportLang(string[] lines)
+{
+    await Task.Run(() => Parallel.ForEach(lines, line => {ImportLine(line);}));
+}
+
+async void ImportLine(line)
 {
     Match scripto_namos = script_names.Match(line);
     Match strings_langos = lang_strings.Match(line);
@@ -58,8 +71,5 @@ foreach (string line in lines)
             //Console.WriteLine(i + ": " + scripts_stringos[i]);
         }
     }
-    IncrementProgress();
+    IncrementProgressParallel();
 }
-StopProgressBarUpdater();
-HideProgressBar();
-ScriptMessage("\nLang imported succesfully\n");
