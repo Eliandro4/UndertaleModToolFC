@@ -29,20 +29,23 @@ string RegexFileErrorLog = String.Empty;
 bool BoolRandomLog = false;
 bool WarningLog = false;
 
-await CreateLists();
+foreach (string file in files) {CreateList(file);}
 
 SetProgressBar(null, "Sprites", 0, images.Count);
 StartProgressBarUpdater();
 
 await ReplacePageItems();
+CreateLogs();
 
 await StopProgressBarUpdater();
 HideProgressBar();
 
+/*
 async Task CreateLists()
 {
     await Task.Run(() => Parallel.ForEach(files, file => {CreateList(file);}));
 }
+*/
 
 async Task ReplacePageItems()
 {
@@ -117,44 +120,47 @@ void ReplacePageItem(int i)
     return;
 }
 
-if (!(LogExeptions == String.Empty))
+void CreateLogs()
 {
-    Fulllog += "--------------------------------------------------\n";
-    Fulllog += "-------------------EXCEPTIONS!--------------------\n";
-    Fulllog += "--------------------------------------------------\n";
-    Fulllog += LogExeptions;
-}
+    if (LogExeptions != String.Empty)
+    {
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += "-------------------EXCEPTIONS!--------------------\n";
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += LogExeptions;
+    }
 
-if (!(RegexFileErrorLog == String.Empty))
-{
-    Fulllog += "--------------------------------------------------\n";
-    Fulllog += "-------------------REGEX_ERROR!--------------------\n";
-    Fulllog += "--------------------------------------------------\n";
-    Fulllog += RegexFileErrorLog;
-}
+    if (RegexFileErrorLog != String.Empty)
+    {
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += "-------------------REGEX_ERROR!--------------------\n";
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += RegexFileErrorLog;
+    }
 
-if (BoolRandomLog)
-{
-    File.WriteAllText(Path.Combine(path, "RandomLog.csv"), RandomLog);
-}
+    if (BoolRandomLog)
+    {
+        File.WriteAllText(Path.Combine(path, "RandomLog.csv"), RandomLog);
+    }
 
-if (WarningLog)
-{
-    Fulllog += "--------------------------------------------------\n";
-    Fulllog += "--------------------WARNINGS!---------------------\n";
-    Fulllog += "--------------------------------------------------\n";
-    Fulllog += WarnLog;
-}
+    if (WarningLog)
+    {
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += "--------------------WARNINGS!---------------------\n";
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += WarnLog;
+    }
 
-if (!(UneconomicaLog == String.Empty))
-{
-    Fulllog += "--------------------------------------------------\n";
-    Fulllog += "-------------------UNECONOMICAL!------------------\n";
-    Fulllog += "--------------------------------------------------\n";
-    Fulllog += UneconomicaLog;
-}
+    if (UneconomicaLog != String.Empty)
+    {
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += "-------------------UNECONOMICAL!------------------\n";
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += UneconomicaLog;
+    }
 
-if (!(Fulllog == String.Empty))
-{
-    File.WriteAllText(Path.Combine(path, "Log.txt"), Fulllog);
+    if (!(Fulllog == String.Empty))
+    {
+        File.WriteAllText(Path.Combine(path, "Log.txt"), Fulllog);
+    }
 }
