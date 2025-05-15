@@ -31,18 +31,15 @@ bool WarningLog = false;
 
 foreach (string file in files)
 {
-    string filo = file.Replace(" uneconomical", "").Replace("  redimensioned", "").Replace("_uneconomical", "");
+    string filo = Path.GetFileName(file);
+    filo = filo.Replace(" uneconomical", "").Replace("  redimensioned", "").Replace("_uneconomical", "");
     Match frame_match = frame_regex.Match(file);
-    Match filename_match = filename.Match(filo.Split("/").Last());
+    Match filename_match = filename.Match(filo);
     {
         if (!filename_match.Success)
         {
-            filename_match = filename.Match(filo.Split("\\").Last());
-            if (!filename_match.Success)
-            {
-                RegexFileErrorLog += $"\"{file}\" coudn't pass the regex for some reason\n\tpattern 1: \"{filo.Split("/").Last()}\"\n\tpattern 2: \"{filo.Split("\\").Last()}\"\n";
-                continue;
-            }
+            RegexFileErrorLog += $"\"{file}\" coudn't pass the regex for some reason\n\tpattern 1: \"{filo.Split("/").Last()}\"\n\tpattern 2: \"{filo.Split("\\").Last()}\"\n";
+            continue;
         }
     }
     frames.Add(frame_match.Success ? frame_match.Groups[1].Value : "0");
