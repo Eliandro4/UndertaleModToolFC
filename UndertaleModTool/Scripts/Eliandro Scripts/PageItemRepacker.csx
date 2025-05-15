@@ -29,7 +29,26 @@ string RegexFileErrorLog = String.Empty;
 bool BoolRandomLog = false;
 bool WarningLog = false;
 
-foreach (string file in files)
+SetProgressBar(null, "Sprites", 0, images.Count);
+StartProgressBarUpdater();
+
+await CreateLists();
+await ReplacePageItems();
+
+await StopProgressBarUpdater();
+HideProgressBar();
+
+async Task CreateLists()
+{
+    await Task.Run(() => Parallel.ForEach(files, CreateList));
+}
+
+async Task ReplacePageItems()
+{
+    await Task.Run(() => Parallel.For(0, images.Count, i => {ReplacePageItem(i);}));
+}
+
+void CreateList(string file)
 {
     string filo = Path.GetFileName(file);
     filo = filo.Replace(" uneconomical", "").Replace("  redimensioned", "").Replace("_uneconomical", "");
@@ -39,7 +58,7 @@ foreach (string file in files)
         if (!filename_match.Success)
         {
             RegexFileErrorLog += $"\"{file}\" coudn't pass the regex for some reason\n\tpattern 1: \"{filo.Split("/").Last()}\"\n\tpattern 2: \"{filo.Split("\\").Last()}\"\n";
-            continue;
+            return;
         }
     }
     frames.Add(frame_match.Success ? frame_match.Groups[1].Value : "0");
@@ -49,19 +68,6 @@ foreach (string file in files)
     {
         WarnLog += $"file:{file} doesn't have and texture index. Assuming 0.\n";
     }
-}
-
-SetProgressBar(null, "Sprites", 0, images.Count);
-StartProgressBarUpdater();
-
-await ReplacePageItems();
-
-await StopProgressBarUpdater();
-HideProgressBar();
-
-async Task ReplacePageItems()
-{
-    await Task.Run(() => Parallel.For(0, images.Count, i => {ReplacePageItem(i);}));
 }
 
 void ReplacePageItem(int i)
