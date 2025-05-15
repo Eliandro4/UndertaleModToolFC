@@ -29,10 +29,11 @@ string RegexFileErrorLog = String.Empty;
 bool BoolRandomLog = false;
 bool WarningLog = false;
 
+await CreateLists();
+
 SetProgressBar(null, "Sprites", 0, images.Count);
 StartProgressBarUpdater();
 
-await CreateLists();
 await ReplacePageItems();
 
 await StopProgressBarUpdater();
@@ -40,7 +41,7 @@ HideProgressBar();
 
 async Task CreateLists()
 {
-    await Task.Run(() => Parallel.ForEach(files, CreateList));
+    await Task.Run(() => Parallel.ForEach(files, file => {CreateList(file);}));
 }
 
 async Task ReplacePageItems()
@@ -68,6 +69,7 @@ void CreateList(string file)
     {
         WarnLog += $"file:{file} doesn't have and texture index. Assuming 0.\n";
     }
+    return;
 }
 
 void ReplacePageItem(int i)
@@ -112,6 +114,7 @@ void ReplacePageItem(int i)
         LogExeptions += $"Data.Sprites doesn't have a definition for \"{images[i]}\"\n";
     }
     IncrementProgressParallel();
+    return;
 }
 
 if (!(LogExeptions == String.Empty))
