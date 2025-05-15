@@ -54,7 +54,13 @@ foreach (string file in files)
     }
 }
 
+SetProgressBar(null, "Sprites", 0, images.Count);
+StartProgressBarUpdater();
+
 await ReplacePageItems();
+
+await StopProgressBarUpdater();
+HideProgressBar();
 
 async Task ReplacePageItems()
 {
@@ -102,6 +108,7 @@ void ReplacePageItem(int i)
     {
         LogExeptions += $"Data.Sprites doesn't have a definition for \"{images[i]}\"\n";
     }
+    IncrementProgressParallel();
 }
 
 if (!(LogExeptions == String.Empty))
