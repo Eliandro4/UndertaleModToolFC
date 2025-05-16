@@ -68,16 +68,16 @@ static string JsonifyString(string str)
 
 string EnsureFileSelected()
 {
-    OpenFileDialog openFileDialog = new OpenFileDialog();
-    openFileDialog.Filter = "TXT files (*.txt)|*.txt|All files (*.*)|*.*";
+    string openfile = String.Empty;
+    openfile = PromptLoadFile("", "TXT and JSON files (.txt, .json)|*.txt;*.json|All files (*.*)|*.*");
 
-    if (openFileDialog.ShowDialog() == DialogResult.OK)
+    if (!string.IsNullOrEmpty())
     {
-        return openFileDialog.FileName;
+        return openfile;
     }
     else
     {
-        Console.WriteLine("Operação cancelada.");
+        ScriptMessage("Operação cancelada");
         return string.Empty;
     }
 }
@@ -105,18 +105,18 @@ string GetDifferences(string[] lines1, string[] lines2)
 
 void SaveDifferencesToFile(string differences)
 {
-    SaveFileDialog saveFileDialog = new SaveFileDialog();
-    saveFileDialog.Filter = "TXT files (*.txt)|*.txt|All files (*.*)|*.*";
+    string save_path = String.Empty;
+    save_path = PromptChooseDirectory();
 
-    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+    if (!save_path.IsNullOrEmpty())
     {
-        string resultFilePath = saveFileDialog.FileName;
+        string resultFilePath = Path.Combine(save_path, "diferencas.json");
         File.WriteAllText(resultFilePath, differences);
 
-        Console.WriteLine($"Diferenças salvas em: {resultFilePath}");
+        ScriptMessage($"Diferenças salvas em: {resultFilePath}");
     }
     else
     {
-        Console.WriteLine("Operação cancelada. Nenhuma diferença foi salva.");
+        ScriptMessage("Operação cancelada. Nenhuma diferença foi salva.");
     }
 }
