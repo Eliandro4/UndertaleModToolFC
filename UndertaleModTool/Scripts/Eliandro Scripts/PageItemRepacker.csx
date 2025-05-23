@@ -91,6 +91,16 @@ void ReplacePageItem(int i)
             {
                 Data.TexturePageItems[pageitem_index].ReplaceTexture(idk);
             }
+            else if ((idk.Width == Data.TexturePageItems[pageitem_index].BoundingWidth) && (idk.Height == Data.TexturePageItems[pageitem_index].BoundingHeight))
+            {
+                bool import_padding = ScriptQuestion($"it look's like {images[i]} was exported with padding, try importing?");
+                if (import_padding)
+                {
+                    MagickGeometry rectangle = new MagickGeometry(Data.TexturePageItems[pageitem_index].TargetX, Data.TexturePageItems[pageitem_index].TargetY, Data.TexturePageItems[pageitem_index].TargetWidth, Data.TexturePageItems[pageitem_index].TargetHeight);
+                    idk.Crop(rectangle);
+                    Data.TexturePageItems[pageitem_index].ReplaceTexture(idk);
+                }
+            }
             else if (Log)
             {
                 string Exceptchones = String.Empty;
