@@ -29,6 +29,8 @@ ScriptMessage("Selecione um JSON do TextureRepacker");
 string path = PromptLoadFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
 string json = File.ReadAllText(path);
 List<TextureJson> ListaTexturas = JsonSerializer.Deserialize<List<TextureJson>>(json);
+string WarnLog = String.Empty;
+string LogExeptions = String.Empty;
 foreach (TextureJson algo in ListaTexturas)
 {
     //ScriptMessage(algo.Name);
@@ -54,6 +56,7 @@ foreach (TextureJson sprite in ListaTexturas)
     string name = sprite.Name.Replace(" uneconomical", "").Replace("  redimensioned", "").Replace("_uneconomical", "");
     Match frame_match = frame_regex.Match(name + ".png");
     int sprite_frame_index = frame_match.Success ? int.Parse(frame_match.Groups[1].Value) : 0;
+    if (!frame_match.Success) { WarnLog += $"{name} não tem index explícito, assumindo 0"; }
     name = name.Replace($"_{sprite_frame_index}", "");
     int sprite_index = Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == name));
     if (sprite_index != -1)
@@ -76,11 +79,40 @@ foreach (TextureJson sprite in ListaTexturas)
         }
         else
         {
-            ScriptMessage($"O sprite {name} não tem tantos frames");
+            LogExeptions += $"Index {sprite_frame_index} fora do escopo de: {name}";
         }
     }
     else
     {
-        ScriptMessage($"Data.Sprites não tem uma definição para {name}");
+        LogExeptions += $"Data.Sprites não tem uma definição para {name}";
+    }
+}
+
+CreateLogs();
+
+void CreateLogs()
+{
+    string log_path = PromptSaveFile(".json", "JSON files (*.json)|*.json|TXT files (*.txt)|*.txt|All files (*.*)|*.*");
+    if (string.IsNullOrWhiteSpace(path)) { return; }
+    string Fulllog = String.Empty;
+    if (LogExeptions != String.Empty)
+    {
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += "-------------------EXCEPTIONS!--------------------\n";
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += LogExeptions;
+    }
+
+    if (WarnLog != String.Empty)
+    {
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += "--------------------WARNINGS!---------------------\n";
+        Fulllog += "--------------------------------------------------\n";
+        Fulllog += WarnLog;
+    }
+
+    if (!(Fulllog == String.Empty))
+    {
+        File.WriteAllText(log_path, Fulllog);
     }
 }
