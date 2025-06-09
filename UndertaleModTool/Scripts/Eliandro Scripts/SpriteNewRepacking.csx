@@ -5,6 +5,10 @@ using System.Text.Json;
 using UndertaleModLib;
 using UndertaleModLib.Models;
 using UndertaleModLib.Util;
+using UndertaleModLib.Decompiler;
+using UndertaleModLib.Scripting;
+using System.Linq;
+using ImageMagick;
 
 public class TextureJson
 {
@@ -38,7 +42,7 @@ foreach (string Embeddedoro in embededos)
     string EmbeddedImage = Path.Combine(Path.GetDirectoryName(path), $"{Embeddedoro}.png");
     UndertaleEmbeddedTexture texture = new UndertaleEmbeddedTexture();
     texture.Name = new UndertaleString($"Texture {Data.EmbeddedTextures.Count}");
-    texture.TextureData.Image = GMImage.FromPng(File.ReadAllBytes(atlasName));
+    texture.TextureData.Image = GMImage.FromPng(File.ReadAllBytes(EmbeddedImage));
     embeddedos_id.Add(Data.EmbeddedTextures.Count);
     Data.EmbeddedTextures.Add(texture);
 }
@@ -48,7 +52,7 @@ foreach (TextureJson sprite in ListaTexturas)
     Match frame_match = frame_regex.Match(sprite.Name);
     string name = sprite.Name.Replace($"_{frame_match.Groups[1].Value}", "");
     int sprite_index = Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == name));
-    int pageitem_index = Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[frame_match.Groups[1].Value].Texture);
+    int pageitem_index = Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[int.Parse(frame_match.Groups[1].Value)].Texture);
     Data.TexturePageItems[pageitem_index].ReplaceTexture(new MagickImage());
     Data.TexturePageItems[pageitem_index].TexturePage = Data.EmbeddedTextures[embeddedos_id[embededos.IndexOf(sprite.Texture)]];
     Data.TexturePageItems[pageitem_index].SourceHeight = sprite.Height;
