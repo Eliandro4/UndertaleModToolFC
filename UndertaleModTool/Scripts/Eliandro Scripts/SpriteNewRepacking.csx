@@ -9,6 +9,7 @@ using UndertaleModLib.Decompiler;
 using UndertaleModLib.Scripting;
 using System.Linq;
 using ImageMagick;
+using System.Text.RegularExpressions;
 
 public class TextureJson
 {
@@ -51,19 +52,41 @@ foreach (string Embeddedoro in embededos)
 foreach (TextureJson sprite in ListaTexturas)
 {
     Match frame_match = frame_regex.Match(sprite.Name + ".png");
-    string name = sprite.Name.Replace($"_{frame_match.Groups[1].Value}", "");
-    int sprite_index = Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == name));
-    int pageitem_index = Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[int.Parse(frame_match.Groups[1].Value)].Texture);
-    Data.TexturePageItems[pageitem_index].ReplaceTexture(new MagickImage(MagickColors.Transparent, 64, 64));
-    Data.TexturePageItems[pageitem_index].TexturePage = Data.EmbeddedTextures[embeddedos_id[embededos.IndexOf(sprite.Texture)]];
-    Data.TexturePageItems[pageitem_index].SourceHeight = sprite.Height;
-    Data.TexturePageItems[pageitem_index].TargetHeight = sprite.Height;
-    Data.TexturePageItems[pageitem_index].BoundingHeight = sprite.Height;
-    Data.TexturePageItems[pageitem_index].SourceWidth = sprite.Width;
-    Data.TexturePageItems[pageitem_index].TargetWidth = sprite.Width;
-    Data.TexturePageItems[pageitem_index].BoundingWidth = sprite.Width;
-    Data.TexturePageItems[pageitem_index].SourceX = sprite.X;
-    Data.TexturePageItems[pageitem_index].TargetX = 0;
-    Data.TexturePageItems[pageitem_index].SourceY = sprite.Y;
-    Data.TexturePageItems[pageitem_index].TargetY = 0;
+    if (frame_match.Success)
+    {
+        string name = sprite.Name.Replace($"_{frame_match.Groups[1].Value}", "");
+        int sprite_index = Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == name));
+        int sprite_frame_index = int.Parse(frame_match.Groups[1].Value);
+        if (sprite_index != -1)
+        {
+            if (sprite_frame_index < Data.Sprites[sprite_index].Textures.Count)
+            {
+                int pageitem_index = Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[sprite_frame_index].Texture);
+                Data.TexturePageItems[pageitem_index].ReplaceTexture(new MagickImage(MagickColors.Transparent, 64, 64));
+                Data.TexturePageItems[pageitem_index].TexturePage = Data.EmbeddedTextures[embeddedos_id[embededos.IndexOf(sprite.Texture)]];
+                Data.TexturePageItems[pageitem_index].SourceHeight = sprite.Height;
+                Data.TexturePageItems[pageitem_index].TargetHeight = sprite.Height;
+                Data.TexturePageItems[pageitem_index].BoundingHeight = sprite.Height;
+                Data.TexturePageItems[pageitem_index].SourceWidth = sprite.Width;
+                Data.TexturePageItems[pageitem_index].TargetWidth = sprite.Width;
+                Data.TexturePageItems[pageitem_index].BoundingWidth = sprite.Width;
+                Data.TexturePageItems[pageitem_index].SourceX = sprite.X;
+                Data.TexturePageItems[pageitem_index].TargetX = 0;
+                Data.TexturePageItems[pageitem_index].SourceY = sprite.Y;
+                Data.TexturePageItems[pageitem_index].TargetY = 0;
+            }
+            else
+            {
+                ScriptMessage($"O sprite {name} não tem tantos frames");
+            }
+        }
+        else
+        {
+            ScriptMessage($"Data.Sprites não tem uma definição para {name}");
+        }
+    }
+    else
+    {
+        ScriptMessage($"{sprite.Name} não passou no regex");
+    }
 }
