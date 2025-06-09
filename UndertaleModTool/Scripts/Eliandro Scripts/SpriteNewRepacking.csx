@@ -48,7 +48,6 @@ foreach (string Embeddedoro in embededos)
     Data.EmbeddedTextures.Add(texture);
 }
 
-/*
 foreach (TextureJson sprite in ListaTexturas)
 {
     Match frame_match = frame_regex.Match(sprite.Name + ".png");
@@ -64,8 +63,7 @@ foreach (TextureJson sprite in ListaTexturas)
     Data.TexturePageItems[pageitem_index].TargetWidth = sprite.Width;
     Data.TexturePageItems[pageitem_index].BoundingWidth = sprite.Width;
     Data.TexturePageItems[pageitem_index].SourceX = sprite.X;
-    Data.TexturePageItems[pageitem_index].TargetX = sprite.X;
+    Data.TexturePageItems[pageitem_index].TargetX = 0;
     Data.TexturePageItems[pageitem_index].SourceY = sprite.Y;
-    Data.TexturePageItems[pageitem_index].TargetY = sprite.Y;
+    Data.TexturePageItems[pageitem_index].TargetY = 0;
 }
-*/
