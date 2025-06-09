@@ -14,10 +14,10 @@ public class TextureJson
 {
     public string Name { get; set; }
     public string Texture { get; set; }
-    public int X { get; set; }
-    public int Y { get; set; }
-    public int Width { get; set; }
-    public int Height { get; set; }
+    public ushort X { get; set; }
+    public ushort Y { get; set; }
+    public ushort Width { get; set; }
+    public ushort Height { get; set; }
 
     public TextureJson() {}
 }
