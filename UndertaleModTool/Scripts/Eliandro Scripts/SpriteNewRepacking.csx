@@ -47,13 +47,14 @@ foreach (string Embeddedoro in embededos)
     Data.EmbeddedTextures.Add(texture);
 }
 
+/*
 foreach (TextureJson sprite in ListaTexturas)
 {
-    Match frame_match = frame_regex.Match(sprite.Name);
+    Match frame_match = frame_regex.Match(sprite.Name + ".png");
     string name = sprite.Name.Replace($"_{frame_match.Groups[1].Value}", "");
     int sprite_index = Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == name));
     int pageitem_index = Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[int.Parse(frame_match.Groups[1].Value)].Texture);
-    Data.TexturePageItems[pageitem_index].ReplaceTexture(new MagickImage());
+    Data.TexturePageItems[pageitem_index].ReplaceTexture(new MagickImage(MagickColors.Transparent, 64, 64));
     Data.TexturePageItems[pageitem_index].TexturePage = Data.EmbeddedTextures[embeddedos_id[embededos.IndexOf(sprite.Texture)]];
     Data.TexturePageItems[pageitem_index].SourceHeight = sprite.Height;
     Data.TexturePageItems[pageitem_index].TargetHeight = sprite.Height;
@@ -66,3 +67,4 @@ foreach (TextureJson sprite in ListaTexturas)
     Data.TexturePageItems[pageitem_index].SourceY = sprite.Y;
     Data.TexturePageItems[pageitem_index].TargetY = sprite.Y;
 }
+*/
