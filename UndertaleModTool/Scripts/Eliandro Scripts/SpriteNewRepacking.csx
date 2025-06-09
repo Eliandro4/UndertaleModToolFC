@@ -39,11 +39,12 @@ foreach (TextureJson algo in ListaTexturas)
 
 foreach (string Embeddedoro in embededos)
 {
+    int lastTextPage = Data.EmbeddedTextures.Count - 1;
     string EmbeddedImage = Path.Combine(Path.GetDirectoryName(path), $"{Embeddedoro}.png");
     UndertaleEmbeddedTexture texture = new UndertaleEmbeddedTexture();
-    texture.Name = new UndertaleString($"Texture {Data.EmbeddedTextures.Count}");
+    texture.Name = new UndertaleString($"Texture {++lastTextPage}");
     texture.TextureData.Image = GMImage.FromPng(File.ReadAllBytes(EmbeddedImage));
-    embeddedos_id.Add(Data.EmbeddedTextures.Count);
+    embeddedos_id.Add(lastTextPage);
     Data.EmbeddedTextures.Add(texture);
 }
 
