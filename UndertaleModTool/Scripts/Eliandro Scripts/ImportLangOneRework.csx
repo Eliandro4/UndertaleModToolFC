@@ -23,18 +23,13 @@ string[] lines = File.ReadAllLines(path);
 SetProgressBar(null, "Importing Lang", 0, lines.Length);
 StartProgressBarUpdater();
 
-await TaskImportLang(lines);
+foreach (string line in lines) { TaskImportLang(line); }
 
 await StopProgressBarUpdater();
 HideProgressBar();
 ScriptMessage("\nLang imported succesfully\n");
 
-async Task TaskImportLang(string[] lines)
-{
-    await Task.Run(() => Parallel.ForEach(lines, line => {ImportLine(line);}));
-}
-
-async void ImportLine(string line)
+void TaskImportLang(string line)
 {
     Match scripto_namos = script_names.Match(line);
     Match strings_langos = lang_strings.Match(line);
@@ -51,25 +46,13 @@ async void ImportLine(string line)
             if (stringos_id.Groups[1].Value == $"{i}")
             {
                 //Console.WriteLine("EQUALIDADE");
-                int aoi = 0;
-                foreach (string something in arustringos)
+                int aoi = Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == scripts_stringos[i].Groups[1].Value));
+                if (aoi != -1)
                 {
-                    if (scripts_stringos[i].Groups[1].Value == something)
-                    {
-                        if (scripts_stringos[i].Groups[1].Value != strings_langos.Groups[1].Value)
-                        {
-                            //Console.WriteLine($"{scripts_stringos[i].Groups[1].Value} : {something} : {strings_langos.Groups[1].Value}");
-                            Data.Strings[aoi].Content = strings_langos.Groups[1].Value;
-                            //Console.WriteLine("String Subtituida");
-                        }
-                        //Console.WriteLine($"{scripts_stringos[i].Groups[1].Value} : {strings_langos.Groups[1].Value}");
-                        break;
-                    }
-                    aoi++;
+                    Data.Strings[aoi].Content = strings_langos.Groups[1].Value;
                 }
             }
-            //Console.WriteLine(i + ": " + scripts_stringos[i]);
         }
     }
-    IncrementProgressParallel();
+    IncrementProgress();
 }
