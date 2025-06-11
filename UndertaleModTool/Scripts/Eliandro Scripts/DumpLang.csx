@@ -52,7 +52,9 @@ for (int jay = 0; jay < codeArray.Length; jay++)
                 !val.Contains(".mp4") &&
                 !val.Contains("play_") &&
                 !val.Contains("npc_") &&
-                !val.Contains("gml_")
+                !val.Contains("gml_") &&
+                Data.Variables.IndexOf(Data.Variables.FirstOrDefault(e => e.Name.Content == val)) == -1 &&
+                Data.Functions.IndexOf(Data.Functions.FirstOrDefault(e => e.Name.Content == val)) == -1
         )
         {
             int string_id = Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val));
