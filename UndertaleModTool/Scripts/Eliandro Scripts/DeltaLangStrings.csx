@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
-using System.Text.Json;
+using Newtonsoft.Json;
 
 Regex lang_regex = new Regex(@"""([^""]+)"":");
 ScriptMessage("Selecione a lang japonesa");
@@ -17,32 +17,21 @@ if (string.IsNullOrWhiteSpace(ja_lang_path)) { return; }
 ScriptMessage("Selecione um arquivo de saída");
 string en_lang_path = PromptSaveFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
 if (string.IsNullOrWhiteSpace(en_lang_path)) { return; }
-string[] ja_lang_content = File.ReadAllLines(ja_lang_path);
+List<string> ja_lang_content = File.ReadAllLines(ja_lang_path).ToList();
 Dictionary<string, string> lang_entries = [];
 foreach (string ja_lang_line in ja_lang_content)
 {
-    bool encontrado = false;
     Match lang_match = lang_regex.Match(ja_lang_line);
     if (lang_match.Success)
     {
-        encontrado = false;
-        string searching_for = lang_match.Groups[1].Value;
-        foreach (UndertaleString better_line in Data.Strings)
-        {
-            if (encontrado) {
-                encontrado = false;
-                break;
-            }
-            if (better_line.Content == searching_for) {
-                string exp_lang_string = Data.Strings[Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == better_line.Content)) + 1].Content;
-                lang_entries.Add(searching_for, exp_lang_string);
-                Console.WriteLine(searching_for + " : " + exp_lang_string);
-                encontrado = true;
-                break;
-            }
+        int string_index = Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == lang_match.Groups[1].Value));
+        if (string_index != -1) {
+            string exp_lang_string = Data.Strings[string_index + 1].Content;
+            lang_entries.Add(lang_match.Groups[1].Value, exp_lang_string);
+            Console.WriteLine(lang_match.Groups[1].Value + " : " + exp_lang_string);
         }
     }
 }
 
-string json = JsonSerializer.Serialize(lang_entries);
+string json = JsonConvert.SerializeObject(lang_entries, Formatting.Indented);
 File.WriteAllText(en_lang_path, json);
