@@ -53,10 +53,10 @@ foreach (string Embeddedoro in embededos)
 
 foreach (TextureJson sprite in ListaTexturas)
 {
-    string name = sprite.Name.Replace(" uneconomical", "").Replace("  redimensioned", "").Replace("_uneconomical", "");
+    string name = sprite.Name.Replace(" uneconomical", "").Replace("  redimensioned", "").Replace("_uneconomical", "").Replace(" redimensioned", "");
     Match frame_match = frame_regex.Match(name + ".png");
     int sprite_frame_index = frame_match.Success ? int.Parse(frame_match.Groups[1].Value) : 0;
-    if (!frame_match.Success) { WarnLog += $"{name} não tem index explícito, assumindo 0"; }
+    if (!frame_match.Success) { WarnLog += $"{name} não tem index explícito, assumindo 0\n"; }
     name = name.Replace($"_{sprite_frame_index}", "");
     int sprite_index = Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == name));
     if (sprite_index != -1)
@@ -79,12 +79,12 @@ foreach (TextureJson sprite in ListaTexturas)
         }
         else
         {
-            LogExeptions += $"Index {sprite_frame_index} fora do escopo de: {name}";
+            LogExeptions += $"Index {sprite_frame_index} fora do escopo de: {name}\n";
         }
     }
     else
     {
-        LogExeptions += $"Data.Sprites não tem uma definição para {name}";
+        LogExeptions += $"Data.Sprites não tem uma definição para {name}\n";
     }
 }
 

@@ -55,13 +55,13 @@ async Task ReplacePageItems()
 void CreateList(string file)
 {
     string filo = Path.GetFileName(file);
-    filo = filo.Replace(" uneconomical", "").Replace("  redimensioned", "").Replace("_uneconomical", "");
+    filo = filo.Replace(" uneconomical", "").Replace("  redimensioned", "").Replace("_uneconomical", "").Replace(" redimensioned", "");
     Match frame_match = frame_regex.Match(file);
     Match filename_match = filename.Match(filo);
     {
         if (!filename_match.Success)
         {
-            RegexFileErrorLog += $"\"{file}\" coudn't pass the regex for some reason\n\tpattern 1: \"{filo.Split("/").Last()}\"\n\tpattern 2: \"{filo.Split("\\").Last()}\"\n";
+            RegexFileErrorLog += $"\"{file}\" coudn't pass the regex for some reason\n";
             return;
         }
     }
@@ -81,45 +81,52 @@ void ReplacePageItem(int i)
     int sprite_index = Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]));
     if (sprite_index != -1)
     {
-        int pageitem_index = Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[int.Parse(frames[i])].Texture);
-        if (pageitem_index != -1)
+        if (int.Parse(frames[i]) < Data.Sprites[sprite_index].Textures.Count)
         {
-            RandomLog = BoolRandomLog ? (RandomLog + $"\"{images[i]}[{frames[i]}]\";\"Data.Sprites[{sprite_index}].Textures[{frames[i]}]\";\"{frames[i]}\";\"Data.TexturePageItems[{pageitem_index}]\"\n") : String.Empty;
-            //Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]))].Name.Content);
-            using MagickImage idk = TextureWorker.ReadBGRAImageFromFile(images_files[i]);
-            if ((idk.Width == Data.TexturePageItems[pageitem_index].TargetWidth) && (idk.Height == Data.TexturePageItems[pageitem_index].TargetHeight))
+            int pageitem_index = Data.TexturePageItems.IndexOf(Data.Sprites[sprite_index].Textures[int.Parse(frames[i])].Texture);
+            if (pageitem_index != -1)
             {
-                Data.TexturePageItems[pageitem_index].ReplaceTexture(idk);
-            }
-            else if ((idk.Width == Data.TexturePageItems[pageitem_index].BoundingWidth) && (idk.Height == Data.TexturePageItems[pageitem_index].BoundingHeight))
-            {
-                bool import_padding = ScriptQuestion($"it look's like {images[i]} was exported with padding, try importing?");
-                if (import_padding)
+                RandomLog = BoolRandomLog ? (RandomLog + $"\"{images[i]}[{frames[i]}]\";\"Data.Sprites[{sprite_index}].Textures[{frames[i]}]\";\"{frames[i]}\";\"Data.TexturePageItems[{pageitem_index}]\"\n") : String.Empty;
+                //Console.WriteLine(Data.Sprites[Data.Sprites.IndexOf(Data.Sprites.FirstOrDefault(e => e.Name.Content == images[i]))].Name.Content);
+                using MagickImage idk = TextureWorker.ReadBGRAImageFromFile(images_files[i]);
+                if ((idk.Width == Data.TexturePageItems[pageitem_index].TargetWidth) && (idk.Height == Data.TexturePageItems[pageitem_index].TargetHeight))
                 {
-                    MagickGeometry rectangle = new MagickGeometry(Data.TexturePageItems[pageitem_index].TargetX, Data.TexturePageItems[pageitem_index].TargetY, Data.TexturePageItems[pageitem_index].TargetWidth, Data.TexturePageItems[pageitem_index].TargetHeight);
-                    idk.Crop(rectangle);
                     Data.TexturePageItems[pageitem_index].ReplaceTexture(idk);
+                }
+                else if ((idk.Width == Data.TexturePageItems[pageitem_index].BoundingWidth) && (idk.Height == Data.TexturePageItems[pageitem_index].BoundingHeight))
+                {
+                    bool import_padding = ScriptQuestion($"it look's like {images[i]} was exported with padding, try importing?");
+                    if (import_padding)
+                    {
+                        MagickGeometry rectangle = new MagickGeometry(Data.TexturePageItems[pageitem_index].TargetX, Data.TexturePageItems[pageitem_index].TargetY, Data.TexturePageItems[pageitem_index].TargetWidth, Data.TexturePageItems[pageitem_index].TargetHeight);
+                        idk.Crop(rectangle);
+                        Data.TexturePageItems[pageitem_index].ReplaceTexture(idk);
+                    }
+                }
+                else if (Log)
+                {
+                    string Exceptchones = String.Empty;
+                    Exceptchones += $"Data.TexturePageItems[{pageitem_index}] and {images_files[i]} have diferent sizes\n";
+                    Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetWidth = {Data.TexturePageItems[pageitem_index].TargetWidth}] | image.Width = {idk.Width}\n";
+                    Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetHeight = {Data.TexturePageItems[pageitem_index].TargetHeight}] | image.Height = {idk.Height}\n";
+                    if (!images_files[i].Contains("uneconomical"))
+                    {
+                        LogExeptions += Exceptchones;
+                    }
+                    else
+                    {
+                        UneconomicaLog += Exceptchones;
+                    }
                 }
             }
             else if (Log)
             {
-                string Exceptchones = String.Empty;
-                Exceptchones += $"Data.TexturePageItems[{pageitem_index}] and {images_files[i]} have diferent sizes\n";
-                Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetWidth = {Data.TexturePageItems[pageitem_index].TargetWidth}] | image.Width = {idk.Width}\n";
-                Exceptchones += $"Data.TexturePageItems[{pageitem_index}.TargetHeight = {Data.TexturePageItems[pageitem_index].TargetHeight}] | image.Height = {idk.Height}\n";
-                if (!images_files[i].Contains("uneconomical"))
-                {
-                    LogExeptions += Exceptchones;
-                }
-                else
-                {
-                    UneconomicaLog += Exceptchones;
-                }
+                LogExeptions += $"Data.TexturePageItems doesn't have a definition for \"{images[i]}[{frames[i]}]\"\n";
             }
         }
-        else if (Log)
+        else
         {
-            LogExeptions += $"Data.TexturePageItems doesn't have a definition for \"{images[i]}[{frames[i]}]\"\n";
+            LogExeptions += $"Frame: {int.Parse(frames[i])} fora do range de {images[i]}";
         }
     }
     else if (Log)

@@ -34,7 +34,7 @@ async Task TaskImportLang(string[] lines)
     await Task.Run(() => Parallel.ForEach(lines, line => {ImportLine(line);}));
 }
 
-async void ImportLine(line)
+async void ImportLine(string line)
 {
     Match scripto_namos = script_names.Match(line);
     Match strings_langos = lang_strings.Match(line);

@@ -27,9 +27,35 @@ for (int jay = 0; jay < codeArray.Length; jay++)
     {
         Match match = matches[i];
         string val = match.Groups[1].Value;
-        if ((!extractedStrings.Contains("\"" + val + "\"")) && (!val.Contains("gml_GlobalScript")) && (!val.Contains("gml_Object")) && (!val.Contains("rm_")) && (!val.Contains("obj_")) && (!val.Contains("bg_")) && (!val.Contains("spr_")) && (!val.Contains("_sound")))
+        if (
+                !extractedStrings.Contains("\"" + val + "\"") &&
+                !val.Contains("gml_GlobalScript") &&
+                !val.Contains("gml_Object") &&
+                !val.Contains("rm_") &&
+                !val.Contains("obj_") &&
+                !val.Contains("bg_") &&
+                !val.Contains("spr_") &&
+                !val.Contains("snd_") &&
+                !val.Contains("_sound") &&
+                !val.Contains("config_") &&
+                !val.Contains("chapter_") &&
+                !val.Contains("gamepad_") &&
+                !val.Contains("SPRITES_") &&
+                !val.Contains("SPRITE_") &&
+                !val.Contains("TILES_") &&
+                !val.Contains("BG_") &&
+                !val.Contains("UNUSED_") &&
+                !val.Contains("DEVICE_") &&
+                !val.Contains("flashback_") &&
+                !val.Contains("scr_") &&
+                !val.Contains(".ogg") &&
+                !val.Contains(".mp4") &&
+                !val.Contains("play_") &&
+                !val.Contains("npc_") &&
+                !val.Contains("gml_")
+        )
         {
-            int string_id = (Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val)));
+            int string_id = Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == val));
             if ((string_id) != -1)
             {
                 extractedStrings += $"\n\t\"{(id ? $"[{string_id}]" : String.Empty)}{codo.Name.ToString().Replace("\"", "")}_{i}\": \"{val}\",";
