@@ -78,6 +78,7 @@ public partial class Program : IScriptInterface
 
     private string savedMsg, savedStatus;
     private double savedValue, savedValueMax;
+    private object warning;
 
     /// <summary>
     /// The ScriptOptions, only used for <see cref="CSharpScript"/>, aka running C# code.
@@ -1170,7 +1171,7 @@ Note: If an error window stating that 'the directory is not empty' appears, plea
             {
                 UndertaleData data;
                 using (var stream = new FileStream(groupFilePath, FileMode.Open, FileAccess.Read))
-                    data = UndertaleIO.Read(stream, warning => ScriptMessage("A warning occurred while trying to load " + audioGroupName + ":\n" + warning));
+                    data = UndertaleIO.Read(stream, (warning, _) => ScriptMessage("A warning occurred while trying to load " + audioGroupName + ":\n" + warning));
 
                 loadedAudioGroups[audioGroupName] = data.EmbeddedAudio;
                 return data.EmbeddedAudio;
