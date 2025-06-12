@@ -31,6 +31,7 @@ Dictionary<string, string> lang_entries = [];
 Dictionary<string, string> ja_lang_dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(ja_lang_path));
 foreach (string ja_lang_line in ja_lang_dict.Keys)
 {
+    string result = "null";
     int string_index = Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == ja_lang_line));
     if (string_index != -1) {
         bool is_nulo = (
@@ -38,42 +39,36 @@ foreach (string ja_lang_line in ja_lang_dict.Keys)
             Data.Strings[string_index + 1].Content.Contains("obj_") ||
             Data.Strings[string_index + 1].Content.Contains("DEVICE_")
         );
-        if (string.IsNullOrWhiteSpace(ja_lang_dict[ja_lang_line])) {
-            lang_entries.Add(ja_lang_line, ja_lang_dict[ja_lang_line]);
-            Console.WriteLine(ja_lang_line + " : " + ja_lang_dict[ja_lang_line].Trim());
-        }
-        else if (is_nulo) {
-            bool encontrado = false;
-            for (int code_index = 0; code_index < script_list_content.Length; code_index++)
+    if (string.IsNullOrWhiteSpace(ja_lang_dict[ja_lang_line])) {
+        result = ja_lang_dict[ja_lang_line];
+    }
+    else if (is_nulo) {
+        bool encontrado = false;
+        for (int code_index = 0; code_index < script_list_content.Length; code_index++)
+        {
+            if (encontrado) { break; }
+            string DecompiledCode = GetDecompiledText(Data.Code.ByName(script_list_content[code_index].Trim()));
+            if (DecompiledCode.Contains("\"" + ja_lang_line + "\""))
             {
-                if (encontrado) { break; }
-                string DecompiledCode = GetDecompiledText(Data.Code.ByName(script_list_content[code_index].Trim()));
-                if (DecompiledCode.Contains("\"" + ja_lang_line + "\""))
+                MatchCollection matchos = code_regex.Matches(DecompiledCode);
+                for (int i = 0; i < matchos.Count; i++)
                 {
-                    MatchCollection matchos = code_regex.Matches(DecompiledCode);
-                    for (int i = 0; i < matchos.Count(); i++)
+                    if (matchos[i].Groups[1].Value == ja_lang_line)
                     {
-                        if (matchos[i].Groups[1].Value == ja_lang_line)
-                        {
-                            encontrado = true;
-                            string script_string = matchos[i - 1].Groups[1].Value;
-                            lang_entries.Add(ja_lang_line, string.IsNullOrWhiteSpace(matchos[i - 1].Groups[1].Value) ? "null" : matchos[i - 1].Groups[1].Value);
-                            Console.WriteLine(ja_lang_line + " : " + (string.IsNullOrWhiteSpace(matchos[i - 1].Groups[1].Value) ? "null" : matchos[i - 1].Groups[1].Value.Trim()));
-                            break;
-                        }
-                        else if ((i == (matchos.Count() - 1)) && (code_index == script_list_content.Length))
-                        {
-                            Console.WriteLine(ja_lang_line + " : " + "null");
-                        }
+                        encontrado = true;
+                        result = matchos[i - 1].Groups[1].Value;
+                        break;
                     }
                 }
             }
         }
-        else {
-            string exp_lang_string = Data.Strings[string_index + 1].Content;
-            lang_entries.Add(ja_lang_line, exp_lang_string);
-            Console.WriteLine(ja_lang_line + " : " + exp_lang_string);
-        }
+    }
+    else {
+        string exp_lang_string = Data.Strings[string_index + 1].Content;
+        result = exp_lang_string;
+    }
+        lang_entries.Add(ja_lang_line, result);
+        Console.WriteLine(ja_lang_line + " : " + result);
     }
 }
 
