@@ -12,14 +12,21 @@ using System.Text.Json;
 
 Regex lang_regex = new Regex(@"""([^""]+)"":");
 Regex code_regex = new Regex(@"""((?:[^""\\\r\n]|\\"")*)""");
+
 ScriptMessage("Selecione a lang japonesa");
 string ja_lang_path = PromptLoadFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
 if (string.IsNullOrWhiteSpace(ja_lang_path)) { return; }
+
+ScriptMessage("Selecione um arquivo com a lista de scripts com texto");
+string script_list = PromptSaveFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
+if (string.IsNullOrWhiteSpace(script_list)) { return; }
+
 ScriptMessage("Selecione um arquivo de saída");
 string en_lang_path = PromptSaveFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
 if (string.IsNullOrWhiteSpace(en_lang_path)) { return; }
+
 string[] ja_lang_content = File.ReadAllLines(ja_lang_path);
-List<UndertaleCode> GameCodes = Data.Code.Where(c => c.ParentEntry is null).ToList();
+string[] GameCodes = File.ReadAllLines(script_list);
 Dictionary<string, string> lang_entries = [];
 foreach (string ja_lang_line in ja_lang_content)
 {
@@ -27,25 +34,30 @@ foreach (string ja_lang_line in ja_lang_content)
     Match lang_match = lang_regex.Match(ja_lang_line);
     if (lang_match.Success)
     {
-        encontrado = false;
-        string searching_for = lang_match.Groups[1].Value;
-        foreach (UndertaleCode Code in GameCodes)
+        if (Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == lang_match.Groups[1].Value)) != -1)
         {
-            if (encontrado) {
-                encontrado = false;
-                break;
-            }
-            string DecompiledCode = GetDecompiledText(Code);
-            if (DecompiledCode.Contains("\"" + searching_for + "\""))
+            encontrado = false;
+            string searching_for = lang_match.Groups[1].Value;
+            foreach (string Code in GameCodes)
             {
-                MatchCollection matchos = code_regex.Matches(DecompiledCode);
-                for (int i = 0; i < matchos.Count(); i++)
+                if (encontrado)
                 {
-                    if (matchos[i].Groups[1].Value == searching_for)
+                    encontrado = false;
+                    break;
+                }
+                string DecompiledCode = GetDecompiledText(Data.Code.ByName(Code.Trim()));
+                if (DecompiledCode.Contains("\"" + searching_for + "\""))
+                {
+                    MatchCollection matchos = code_regex.Matches(DecompiledCode);
+                    for (int i = 0; i < matchos.Count(); i++)
                     {
-                        encontrado = true;
-                        lang_entries.Add(searching_for, matchos[i - 1].Groups[1].Value);
-                        break;
+                        if (matchos[i].Groups[1].Value == searching_for)
+                        {
+                            encontrado = true;
+                            lang_entries.Add(searching_for, matchos[i - 1].Groups[1].Value);
+                            Console.WriteLine(matchos[i - 1].Groups[1].Value.Trim());
+                            break;
+                        }
                     }
                 }
             }
