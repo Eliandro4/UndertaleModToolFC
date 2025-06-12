@@ -12,7 +12,6 @@ using Newtonsoft.Json;
 
 EnsureDataLoaded();
 
-Regex lang_regex = new Regex(@"""([^""]+)"":");
 Regex code_regex = new Regex(@"""((?:[^""\\\r\n]|\\.)*)""");
 
 ScriptMessage("Selecione a lang japonesa");
@@ -27,36 +26,44 @@ ScriptMessage("Selecione um arquivo de saída");
 string en_lang_path = PromptSaveFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
 if (string.IsNullOrWhiteSpace(en_lang_path)) { return; }
 
-string ja_lang_content = File.ReadAllText(ja_lang_path);
 string[] script_list_content = await File.ReadAllLinesAsync(script_list_path);
 Dictionary<string, string> lang_entries = [];
-MatchCollection Matchez = lang_regex.Matches(ja_lang_content);
-foreach (Match ja_lang_line in Matchez)
+Dictionary<string, string> ja_lang_dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(ja_lang_path));
+foreach (string ja_lang_line in ja_lang_dict.Keys)
 {
-    int string_index = Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == ja_lang_line.Groups[1].Value));
+    int string_index = Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == ja_lang_line));
     if (string_index != -1) {
         bool is_nulo = (
             Data.Strings[string_index + 1].Content.Contains("gml_") ||
             Data.Strings[string_index + 1].Content.Contains("obj_") ||
             Data.Strings[string_index + 1].Content.Contains("DEVICE_")
         );
-        if (is_nulo) {
+        if (string.IsNullOrWhiteSpace(ja_lang_dict[ja_lang_line])) {
+            lang_entries.Add(ja_lang_line, ja_lang_dict[ja_lang_line]);
+            Console.WriteLine(ja_lang_line + " : " + ja_lang_dict[ja_lang_line].Trim());
+        }
+        else if (is_nulo) {
             bool encontrado = false;
-            foreach (string Code in script_list_content)
+            for (int code_index = 0; code_index < script_list_content.Length; code_index++)
             {
                 if (encontrado) { break; }
-                string DecompiledCode = GetDecompiledText(Data.Code.ByName(Code.Trim()));
-                if (DecompiledCode.Contains("\"" + ja_lang_line.Groups[1].Value + "\""))
+                string DecompiledCode = GetDecompiledText(Data.Code.ByName(script_list_content[code_index].Trim()));
+                if (DecompiledCode.Contains("\"" + ja_lang_line + "\""))
                 {
                     MatchCollection matchos = code_regex.Matches(DecompiledCode);
                     for (int i = 0; i < matchos.Count(); i++)
                     {
-                        if (matchos[i].Groups[1].Value == ja_lang_line.Groups[1].Value)
+                        if (matchos[i].Groups[1].Value == ja_lang_line)
                         {
                             encontrado = true;
                             string script_string = matchos[i - 1].Groups[1].Value;
-                            lang_entries.Add(ja_lang_line.Groups[1].Value, string.IsNullOrWhiteSpace(matchos[i - 1].Groups[1].Value.Trim()) ? "null" : matchos[i - 1].Groups[1].Value.Trim());
-                            Console.WriteLine(ja_lang_line.Groups[1].Value + " : " + (string.IsNullOrWhiteSpace(matchos[i - 1].Groups[1].Value.Trim()) ? "null" : matchos[i - 1].Groups[1].Value.Trim()));
+                            lang_entries.Add(ja_lang_line, matchos[i - 1].Groups[1].Value);
+                            Console.WriteLine(ja_lang_line + " : " + matchos[i - 1].Groups[1].Value.Trim());
+                            break;
+                        }
+                        else if ((i == (matchos.Count() - 1)) && (code_index == script_list_content.Length))
+                        {
+                            Console.WriteLine(ja_lang_line + " : " + "null");
                         }
                     }
                 }
@@ -64,8 +71,8 @@ foreach (Match ja_lang_line in Matchez)
         }
         else {
             string exp_lang_string = Data.Strings[string_index + 1].Content;
-            lang_entries.Add(ja_lang_line.Groups[1].Value, exp_lang_string);
-            Console.WriteLine(ja_lang_line.Groups[1].Value + " : " + exp_lang_string);
+            lang_entries.Add(ja_lang_line, exp_lang_string);
+            Console.WriteLine(ja_lang_line + " : " + exp_lang_string);
         }
     }
 }
