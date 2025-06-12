@@ -50,15 +50,14 @@ foreach (string ja_lang_line in ja_lang_dict.Keys)
             string DecompiledCode = GetDecompiledText(Data.Code.ByName(script_list_content[code_index].Trim()));
             if (DecompiledCode.Contains("\"" + ja_lang_line + "\""))
             {
-                MatchCollection matchos = code_regex.Matches(DecompiledCode);
-                for (int i = 0; i < matchos.Count; i++)
+                List<Match> matchos = code_regex.Matches(DecompiledCode).Cast<Match>().ToList();
+                Match match = matchos.FirstOrDefault(m => m.Groups.Count > 1 && m.Groups[1].Value == ja_lang_line);
+                if (match?.Success == true)
                 {
-                    if (matchos[i].Groups[1].Value == ja_lang_line)
-                    {
-                        encontrado = true;
-                        result = matchos[i - 1].Groups[1].Value;
-                        break;
-                    }
+                    int match_index = matchos.IndexOf(match);
+                    encontrado = true;
+                    result = matchos[match_index - 1].Groups[1].Value;
+                    break;
                 }
             }
         }
