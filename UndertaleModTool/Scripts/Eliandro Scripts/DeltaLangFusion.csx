@@ -13,7 +13,7 @@ using Newtonsoft.Json;
 EnsureDataLoaded();
 
 Regex lang_regex = new Regex(@"""([^""]+)"":");
-Regex code_regex = new Regex(@"""((?:[^""\\\r\n]|\\"")*)""");
+Regex code_regex = new Regex(@"""((?:[^""\\\r\n]|\\.)*)""");
 
 ScriptMessage("Selecione a lang japonesa");
 string ja_lang_path = PromptLoadFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
@@ -55,8 +55,8 @@ foreach (Match ja_lang_line in Matchez)
                         {
                             encontrado = true;
                             string script_string = matchos[i - 1].Groups[1].Value;
-                            lang_entries.Add(ja_lang_line.Groups[1].Value, string.IsNullOrWhiteSpace(script_list_path) ? "null" : matchos[i - 1].Groups[1].Value.Trim());
-                            Console.WriteLine(ja_lang_line.Groups[1].Value + " : " + string.IsNullOrWhiteSpace(script_list_path) ? "null" : matchos[i - 1].Groups[1].Value.Trim());
+                            lang_entries.Add(ja_lang_line.Groups[1].Value, string.IsNullOrWhiteSpace(matchos[i - 1].Groups[1].Value.Trim()) ? "null" : matchos[i - 1].Groups[1].Value.Trim());
+                            Console.WriteLine(ja_lang_line.Groups[1].Value + " : " + (string.IsNullOrWhiteSpace(matchos[i - 1].Groups[1].Value.Trim()) ? "null" : matchos[i - 1].Groups[1].Value.Trim()));
                         }
                     }
                 }

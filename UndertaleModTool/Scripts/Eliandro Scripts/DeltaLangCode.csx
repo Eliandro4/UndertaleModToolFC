@@ -13,7 +13,7 @@ using Newtonsoft.Json;
 EnsureDataLoaded();
 
 Regex lang_regex = new Regex(@"""([^""]+)"":");
-Regex code_regex = new Regex(@"""((?:[^""\\\r\n]|\\"")*)""");
+Regex code_regex = new Regex(@"""((?:[^""\\\r\n]|\\.)*)""");
 
 ScriptMessage("Selecione a lang japonesa");
 string ja_lang_path = PromptLoadFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
