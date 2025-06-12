@@ -20,14 +20,15 @@ string ja_lang_path = PromptLoadFile("", "TXT files (*.txt)|*.txt|JSON files (*.
 if (string.IsNullOrWhiteSpace(ja_lang_path)) { return; }
 
 ScriptMessage("Selecione um arquivo com a lista de scripts com texto");
-string script_list = PromptLoadFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
-if (string.IsNullOrWhiteSpace(script_list)) { return; }
+string script_list_path = PromptLoadFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
+if (string.IsNullOrWhiteSpace(script_list_path)) { return; }
 
 ScriptMessage("Selecione um arquivo de saída");
 string en_lang_path = PromptSaveFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
 if (string.IsNullOrWhiteSpace(en_lang_path)) { return; }
 
 string ja_lang_content = File.ReadAllText(ja_lang_path);
+string[] script_list_content = await File.ReadAllLinesAsync(script_list_path);
 Dictionary<string, string> lang_entries = [];
 MatchCollection Matchez = lang_regex.Matches(ja_lang_content);
 foreach (Match ja_lang_line in Matchez)
@@ -41,7 +42,7 @@ foreach (Match ja_lang_line in Matchez)
         );
         if (is_nulo) {
             bool encontrado = false;
-            foreach (string Code in File.ReadAllLines(script_list))
+            foreach (string Code in script_list_content)
             {
                 if (encontrado) { break; }
                 string DecompiledCode = GetDecompiledText(Data.Code.ByName(Code.Trim()));
