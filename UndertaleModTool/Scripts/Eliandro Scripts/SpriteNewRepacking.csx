@@ -22,6 +22,7 @@ public class TextureJson
 
     public TextureJson() {}
 }
+EnsureDataLoaded();
 Regex frame_regex = new Regex(@"_(\d+).png");
 List<string> embededos = new List<string>();
 List<int> embeddedos_id = new List<int>();

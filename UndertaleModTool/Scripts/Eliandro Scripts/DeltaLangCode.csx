@@ -10,6 +10,8 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
+EnsureDataLoaded();
+
 Regex lang_regex = new Regex(@"""([^""]+)"":");
 Regex code_regex = new Regex(@"""((?:[^""\\\r\n]|\\"")*)""");
 

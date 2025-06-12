@@ -12,6 +12,7 @@ using UndertaleModLib.Models;
 using UndertaleModLib.Compiler;
 using UndertaleModLib.Decompiler;
 
+EnsureDataLoaded();
 Regex script_names = new Regex(@"""([^""]+)_\d+"":");
 Regex lang_strings = new Regex(@": \s*""([^""\\]*(\\.[^""\\]*)*)""");
 Regex strings_id = new Regex(@"_(\d+)""\s*:");
