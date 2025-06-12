@@ -57,8 +57,8 @@ foreach (string ja_lang_line in ja_lang_dict.Keys)
                         {
                             encontrado = true;
                             string script_string = matchos[i - 1].Groups[1].Value;
-                            lang_entries.Add(ja_lang_line, matchos[i - 1].Groups[1].Value);
-                            Console.WriteLine(ja_lang_line + " : " + matchos[i - 1].Groups[1].Value.Trim());
+                            lang_entries.Add(ja_lang_line, string.IsNullOrWhiteSpace(matchos[i - 1].Groups[1].Value) ? "null" : matchos[i - 1].Groups[1].Value);
+                            Console.WriteLine(ja_lang_line + " : " + (string.IsNullOrWhiteSpace(matchos[i - 1].Groups[1].Value) ? "null" : matchos[i - 1].Groups[1].Value.Trim()));
                             break;
                         }
                         else if ((i == (matchos.Count() - 1)) && (code_index == script_list_content.Length))
