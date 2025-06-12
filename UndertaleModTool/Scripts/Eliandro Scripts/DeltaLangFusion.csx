@@ -54,9 +54,9 @@ foreach (Match ja_lang_line in Matchez)
                         if (matchos[i].Groups[1].Value == ja_lang_line.Groups[1].Value)
                         {
                             encontrado = true;
-                            lang_entries.Add(ja_lang_line.Groups[1].Value, matchos[i - 1].Groups[1].Value);
-                            Console.WriteLine(ja_lang_line.Groups[1].Value + " : " + matchos[i - 1].Groups[1].Value.Trim());
-                            break;
+                            string script_string = matchos[i - 1].Groups[1].Value;
+                            lang_entries.Add(ja_lang_line.Groups[1].Value, string.IsNullOrWhiteSpace(script_list_path) ? "null" : matchos[i - 1].Groups[1].Value.Trim());
+                            Console.WriteLine(ja_lang_line.Groups[1].Value + " : " + string.IsNullOrWhiteSpace(script_list_path) ? "null" : matchos[i - 1].Groups[1].Value.Trim());
                         }
                     }
                 }
