@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
-using System.Text.Json;
+using Newtonsoft.Json;
 
 Regex lang_regex = new Regex(@"""([^""]+)"":");
 Regex code_regex = new Regex(@"""((?:[^""\\\r\n]|\\"")*)""");
@@ -65,5 +65,5 @@ foreach (string ja_lang_line in ja_lang_content)
     }
 }
 
-string json = JsonSerializer.Serialize(lang_entries);
+string json = JsonConvert.SerializeObject(lang_entries, Formatting.Indented);
 File.WriteAllText(en_lang_path, json);
