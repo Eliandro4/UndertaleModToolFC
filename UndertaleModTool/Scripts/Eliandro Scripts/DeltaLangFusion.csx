@@ -27,42 +27,44 @@ ScriptMessage("Selecione um arquivo de saída");
 string en_lang_path = PromptSaveFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
 if (string.IsNullOrWhiteSpace(en_lang_path)) { return; }
 
-string[] ja_lang_content = File.ReadAllLines(ja_lang_path);
-string[] GameCodes = File.ReadAllLines(script_list);
+string ja_lang_content = File.ReadAllText(ja_lang_path);
 Dictionary<string, string> lang_entries = [];
-foreach (string ja_lang_line in ja_lang_content)
+MatchCollection Matchez = lang_regex.Matches(ja_lang_content);
+foreach (Match ja_lang_line in Matchez)
 {
-    bool encontrado = false;
-    Match lang_match = lang_regex.Match(ja_lang_line);
-    if (lang_match.Success)
-    {
-        if (Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == lang_match.Groups[1].Value)) != -1)
-        {
-            encontrado = false;
-            string searching_for = lang_match.Groups[1].Value;
-            foreach (string Code in GameCodes)
+    int string_index = Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == ja_lang_line.Groups[1].Value));
+    if (string_index != -1) {
+        bool is_nulo = (
+            Data.Strings[string_index + 1].Content.Contains("gml_") ||
+            Data.Strings[string_index + 1].Content.Contains("obj_") ||
+            Data.Strings[string_index + 1].Content.Contains("DEVICE_")
+        );
+        if (is_nulo) {
+            bool encontrado = false;
+            foreach (string Code in File.ReadAllLines(script_list))
             {
-                if (encontrado)
-                {
-                    encontrado = false;
-                    break;
-                }
+                if (encontrado) { break; }
                 string DecompiledCode = GetDecompiledText(Data.Code.ByName(Code.Trim()));
-                if (DecompiledCode.Contains("\"" + searching_for + "\""))
+                if (DecompiledCode.Contains("\"" + ja_lang_line.Groups[1].Value + "\""))
                 {
                     MatchCollection matchos = code_regex.Matches(DecompiledCode);
                     for (int i = 0; i < matchos.Count(); i++)
                     {
-                        if (matchos[i].Groups[1].Value == searching_for)
+                        if (matchos[i].Groups[1].Value == ja_lang_line.Groups[1].Value)
                         {
                             encontrado = true;
-                            lang_entries.Add(searching_for, matchos[i - 1].Groups[1].Value);
-                            Console.WriteLine(matchos[i - 1].Groups[1].Value.Trim());
+                            lang_entries.Add(ja_lang_line.Groups[1].Value, matchos[i - 1].Groups[1].Value);
+                            Console.WriteLine(ja_lang_line.Groups[1].Value + " : " + matchos[i - 1].Groups[1].Value.Trim());
                             break;
                         }
                     }
                 }
             }
+        }
+        else {
+            string exp_lang_string = Data.Strings[string_index + 1].Content;
+            lang_entries.Add(ja_lang_line.Groups[1].Value, exp_lang_string);
+            Console.WriteLine(ja_lang_line.Groups[1].Value + " : " + exp_lang_string);
         }
     }
 }
