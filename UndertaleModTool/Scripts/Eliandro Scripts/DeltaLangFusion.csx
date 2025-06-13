@@ -9,6 +9,10 @@ using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using System.Security;
+using System.Threading;
+using System.Threading.Tasks;
+using Underanalyzer.Decompiler;
 
 EnsureDataLoaded();
 
@@ -27,16 +31,13 @@ ScriptMessage("Selecione um arquivo de saída");
 string en_lang_path = PromptSaveFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
 if (string.IsNullOrWhiteSpace(en_lang_path)) { return; }
 
-string[] script_list_content = await File.ReadAllLinesAsync(script_list_path);
+string[] script_list = await File.ReadAllLinesAsync(script_list_path);
 Dictionary<string, string> lang_entries = [];
-Dictionary<string, string> ja_lang_dict_org = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(ja_lang_path));
-Dictionary<string, string> ja_lang_dict = [];
-foreach (KeyValuePair<string, string> kvp in ja_lang_dict_org)
+Dictionary<string, string> ja_lang_dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(ja_lang_path));
+List<string> script_list_contents = [];
+foreach (string CODIOS in script_list)
 {
-    int tmp_string_index = Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == kvp.Key));
-    if (tmp_string_index != -1) {
-        ja_lang_dict.Add(kvp.Key, kvp.Value);
-    }
+    script_list_contents.Add(GetDecompiledText(Data.Code.ByName(CODIOS.Trim())));
 }
 List<string> ja_lang_keys = ja_lang_dict.Keys.ToList();
 List<string> ja_lang_values = ja_lang_dict.Values.ToList();
@@ -44,7 +45,6 @@ List<string> ja_lang_values = ja_lang_dict.Values.ToList();
 for (int iteracoes = 0; iteracoes < ja_lang_keys.Count; iteracoes++)
 {
     string ja_lang_line = ja_lang_keys[iteracoes];
-    int tmp_index = ja_lang_values.IndexOf(ja_lang_dict[ja_lang_line]);
     string result = "null";
     int string_index = Data.Strings.IndexOf(Data.Strings.FirstOrDefault(e => e.Content == ja_lang_line));
     if (string_index != -1) {
@@ -60,15 +60,12 @@ for (int iteracoes = 0; iteracoes < ja_lang_keys.Count; iteracoes++)
         if (rnd_regex.Match(ja_lang_dict[ja_lang_line]).Success) {
             result = ja_lang_dict[ja_lang_line];
         }
-        else if ((tmp_index != -1) && (tmp_index < (iteracoes - 1))) {
-            result = lang_entries[ja_lang_keys[tmp_index]];
-        }
         else if (is_nulo) {
             bool encontrado = false;
-            for (int code_index = 0; code_index < script_list_content.Length; code_index++)
+            Parallel.For(0, script_list.Length, code_index =>
             {
-                if (encontrado) { break; }
-                string DecompiledCode = GetDecompiledText(Data.Code.ByName(script_list_content[code_index].Trim()));
+                if (encontrado) { return; }
+                string DecompiledCode = script_list_contents[code_index];
                 List<Match> matchos = code_regex.Matches(DecompiledCode).Cast<Match>().ToList();
                 Match match = matchos.FirstOrDefault(m => m.Groups.Count > 1 && m.Groups[1].Value == ja_lang_line);
                 if (match?.Success == true)
@@ -76,9 +73,10 @@ for (int iteracoes = 0; iteracoes < ja_lang_keys.Count; iteracoes++)
                     int match_index = matchos.IndexOf(match);
                     encontrado = true;
                     result = matchos[match_index - 1].Groups[1].Value;
-                    break;
+                    return;
                 }
             }
+            );
         }
         else
         {
