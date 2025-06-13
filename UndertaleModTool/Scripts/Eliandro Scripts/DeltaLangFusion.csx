@@ -17,7 +17,7 @@ using Underanalyzer.Decompiler;
 EnsureDataLoaded();
 
 Regex code_regex = new Regex(@"""((?:[^""\\\r\n]|\\.)*)""");
-Regex rnd_regex = new Regex(@"^[^\u3040-\u30FF\u4E00-\u9FFF\u31F0-\u31FF]+$");
+//Regex rnd_regex = new Regex(@"^[^\u3040-\u30FF\u4E00-\u9FFF\u31F0-\u31FF]+$");
 
 ScriptMessage("Selecione a lang japonesa");
 string ja_lang_path = PromptLoadFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
@@ -57,7 +57,7 @@ for (int iteracoes = 0; iteracoes < ja_lang_keys.Count; iteracoes++)
             (Data.Strings[string_index + 1].Content.ToUpper() == Data.Strings[string_index + 1].Content)
             ))
         );
-        if (rnd_regex.Match(ja_lang_dict[ja_lang_line]).Success) {
+        if (string.IsNullOrWhiteSpace(ja_lang_line)) {
             result = ja_lang_dict[ja_lang_line];
         }
         else if (is_nulo) {
