@@ -31,10 +31,26 @@ ScriptMessage("Selecione um arquivo de saída");
 string en_lang_path = PromptSaveFile("", "TXT files (*.txt)|*.txt|JSON files (*.json)|*.json|All files (*.*)|*.*");
 if (string.IsNullOrWhiteSpace(en_lang_path)) { return; }
 
-string[] script_list = await File.ReadAllLinesAsync(script_list_path);
+LISTAS script_list_obj = JsonConvert.DeserializeObject<LISTAS>(File.ReadAllText(script_list_path));
 Dictionary<string, string> lang_entries = [];
 Dictionary<string, string> ja_lang_dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText(ja_lang_path));
 List<string> script_list_contents = [];
+List<string> script_list = [];
+switch (Data.GeneralInfo.DisplayName.ToString().Replace("\"", ""))
+{
+    case "DELTARUNE Chapter 2":
+        script_list = script_list_obj.LISTA_CH2;
+        break;
+    case "DELTARUNE Chapter 3":
+        script_list = script_list_obj.LISTA_CH3;
+        break;
+    case "DELTARUNE Chapter 4":
+        script_list = script_list_obj.LISTA_CH4;
+        break;
+    default:
+        ScriptMessage("Isso não é o Deltarune");
+        return;
+}
 foreach (string CODIOS in script_list)
 {
     script_list_contents.Add(GetDecompiledText(Data.Code.ByName(CODIOS.Trim())));
@@ -54,7 +70,7 @@ for (int iteracoes = 0; iteracoes < ja_lang_keys.Count; iteracoes++)
         }
         else if (is_nulo) {
             bool encontrado = false;
-            Parallel.For(0, script_list.Length, code_index =>
+            Parallel.For(0, script_list.Count, code_index =>
             {
                 if (encontrado) { return; }
                 string DecompiledCode = script_list_contents[code_index];
@@ -74,10 +90,18 @@ for (int iteracoes = 0; iteracoes < ja_lang_keys.Count; iteracoes++)
         {
             result = Data.Strings[string_index + 1].Content;
         }
-        lang_entries.Add(ja_lang_line, Regex.Unescape(result));
+        lang_entries.Add(ja_lang_line, Regex.Unescape(result).Replace("\t", " "));
         Console.WriteLine(ja_lang_line + " : " + result);
     }
 }
 
 string json = JsonConvert.SerializeObject(lang_entries, Formatting.Indented);
 File.WriteAllText(en_lang_path, json);
+
+class LISTAS
+{
+    public List<string> LISTA_CH2 { get; set; }
+    public List<string> LISTA_CH3 { get; set; }
+    public List<string> LISTA_CH4 { get; set; }
+    public LISTAS() {}
+}
