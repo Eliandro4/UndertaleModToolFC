@@ -32,7 +32,11 @@ foreach (Match ja_lang_line in Matchez)
         bool is_nulo = (
             Data.Strings[string_index + 1].Content.Contains("gml_") ||
             Data.Strings[string_index + 1].Content.Contains("obj_") ||
-            Data.Strings[string_index + 1].Content.Contains("DEVICE_")
+            Data.Strings[string_index + 1].Content.Contains("DEVICE_") ||
+            ((Data.Strings[string_index + 1].Content.Split(" ").Length == 1) &&
+            ((Data.Strings[string_index + 1].Content.ToLower() == Data.Strings[string_index + 1].Content) ||
+            (Data.Strings[string_index + 1].Content.ToUpper() == Data.Strings[string_index + 1].Content)
+            ))
         );
         string exp_lang_string = is_nulo ? "null" : Data.Strings[string_index + 1].Content;
         lang_entries.Add(ja_lang_line.Groups[1].Value, exp_lang_string);

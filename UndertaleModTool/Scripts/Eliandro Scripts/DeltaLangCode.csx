@@ -90,7 +90,7 @@ for (int iteracoes = 0; iteracoes < ja_lang_keys.Count; iteracoes++)
         {
             result = Data.Strings[string_index + 1].Content;
         }
-        lang_entries.Add(ja_lang_line, Regex.Unescape(result).Replace("\t", " "));
+        lang_entries.Add(ja_lang_line, Regex.Unescape(result));
         Console.WriteLine(ja_lang_line + " : " + result);
     }
 }
