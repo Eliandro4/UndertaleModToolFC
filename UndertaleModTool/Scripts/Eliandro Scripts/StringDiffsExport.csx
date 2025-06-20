@@ -11,7 +11,7 @@ using Newtonsoft.Json;
 
 EnsureDataLoaded();
 
-List<string> DataWinContent = Data.Strings.Select(str => str.Content);
+List<string> DataWinContent = Data.Strings.Select(str => str.Content).ToList();
 
 string filePath2 = PromptLoadFile("", "TXT and JSON files (.txt, .json)|*.txt;*.json|All files (*.*)|*.*");
 if (string.IsNullOrEmpty(filePath2))
@@ -21,7 +21,7 @@ if (string.IsNullOrEmpty(filePath2))
 }
 if (!string.IsNullOrEmpty(filePath2))
 {
-    DS file2Lines0 = JsonConvert.DeserializeObject<DS>(File.ReadAllLines(filePath2));
+    DS file2Lines0 = JsonConvert.DeserializeObject<DS>(File.ReadAllText(filePath2));
     string[] file2Lines = file2Lines0.Strings.ToArray();
 
     string[] DataWinLines = DataWinContent.ToArray();
@@ -60,9 +60,9 @@ string GetDifferences(string[] lines1, string[] lines2)
 
 void SaveDifferencesToFile(string differences)
 {
-    save_path = PromptChooseDirectory();
+    string save_path = PromptChooseDirectory();
 
-    if (!save_path.IsNullOrEmpty())
+    if (!string.IsNullOrEmpty(save_path))
     {
         string resultFilePath = Path.Combine(save_path, "diferencas.json");
         File.WriteAllText(resultFilePath, differences);
