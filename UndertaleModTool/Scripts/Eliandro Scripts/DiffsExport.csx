@@ -2,28 +2,29 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text;
-
-StringBuilder DataWinContent = new StringBuilder("{\r\n    \"Strings\": [\r\n");
-const string
-    prefix = "        ",
-    suffix = ",\r\n";
+using System.Collections.Generic;
+using UndertaleModLib;
+using UndertaleModLib.Scripting;
+using UndertaleModLib.Util;
+using UndertaleModLib.Decompiler;
+using Newtonsoft.Json;
 
 EnsureDataLoaded();
 
-foreach (string str in Data.Strings.Select(str => str.Content))
-    DataWinContent.Append(
-        prefix
-        + JsonifyString(str)
-        + suffix);
-DataWinContent.Length -= suffix.Length;
-DataWinContent.Append("\r\n    ]\r\n}");
+List<string> DataWinContent = Data.Strings.Select(str => str.Content);
 
-string filePath2 = EnsureFileSelected();
+string filePath2 = PromptLoadFile("", "TXT and JSON files (.txt, .json)|*.txt;*.json|All files (*.*)|*.*");
+if (string.IsNullOrEmpty(filePath2))
+{
+    ScriptMessage("No file selected.");
+    return;
+}
 if (!string.IsNullOrEmpty(filePath2))
 {
-    string[] file2Lines = File.ReadAllLines(filePath2);
+    DS file2Lines0 = JsonConvert.DeserializeObject<DS>(File.ReadAllLines(filePath2));
+    string[] file2Lines = file2Lines0.Strings.ToArray();
 
-    string[] DataWinLines = DataWinContent.ToString().Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+    string[] DataWinLines = DataWinContent.ToArray();
 
     string differences = GetDifferences(DataWinLines, file2Lines);
 
@@ -37,54 +38,10 @@ if (!string.IsNullOrEmpty(filePath2))
         ScriptMessage("No differences found.");
     }
 }
-else
-{
-    ScriptMessage("Select a strings_better to compare with the .win content");
-}
-
-static string JsonifyString(string str)
-{
-    StringBuilder sb = new StringBuilder();
-    foreach (char ch in str)
-    {
-        // Characters that JSON requires escaping
-        if (ch == '\"') { sb.Append("\\\""); continue; }
-        if (ch == '\\') { sb.Append("\\\\"); continue; }
-        if (ch == '\b') { sb.Append("\\b"); continue; }
-        if (ch == '\f') { sb.Append("\\f"); continue; }
-        if (ch == '\n') { sb.Append("\\n"); continue; }
-        if (ch == '\r') { sb.Append("\\r"); continue; }
-        if (ch == '\t') { sb.Append("\\t"); continue; }
-        if (Char.IsControl(ch))
-        {
-            sb.Append("\\u" + Convert.ToByte(ch).ToString("x4"));
-            continue;
-        }
-
-        sb.Append(ch);
-    }
-    return "\"" + sb.ToString() + "\"";
-}
-
-string EnsureFileSelected()
-{
-    string openfile = String.Empty;
-    openfile = PromptLoadFile("", "TXT and JSON files (.txt, .json)|*.txt;*.json|All files (*.*)|*.*");
-
-    if (!string.IsNullOrEmpty())
-    {
-        return openfile;
-    }
-    else
-    {
-        ScriptMessage("Operação cancelada");
-        return string.Empty;
-    }
-}
 
 string GetDifferences(string[] lines1, string[] lines2)
 {
-    StringBuilder differences = new StringBuilder();
+    Dictionary<string, string> differencies = [];
 
     int maxLength = Math.Max(lines1.Length, lines2.Length);
     for (int i = 0; i < maxLength; i++)
@@ -94,18 +51,15 @@ string GetDifferences(string[] lines1, string[] lines2)
 
         if (line1 != line2)
         {
-            differences.AppendLine($"Original: {line1}");
-            differences.AppendLine($"Modified: {line2}");
-            differences.AppendLine();
+            differencies.Add(line1, line2);
         }
     }
 
-    return differences.ToString();
+    return JsonConvert.SerializeObject(differencies, Formatting.Indented);
 }
 
 void SaveDifferencesToFile(string differences)
 {
-    string save_path = String.Empty;
     save_path = PromptChooseDirectory();
 
     if (!save_path.IsNullOrEmpty())
@@ -119,4 +73,9 @@ void SaveDifferencesToFile(string differences)
     {
         ScriptMessage("Operação cancelada. Nenhuma diferença foi salva.");
     }
+}
+
+struct DS
+{
+    public List<string> Strings { get; set; }
 }
