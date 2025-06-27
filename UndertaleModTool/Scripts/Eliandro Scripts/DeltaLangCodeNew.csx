@@ -45,6 +45,9 @@ switch (Data.GeneralInfo.DisplayName.ToString().Replace("\"", ""))
     case "DELTARUNE Chapter 4":
         script_list = script_list_obj.LISTA_CH4;
         break;
+    case "DELTARUNE Capítulo 4":
+        script_list = script_list_obj.LISTA_CH4;
+        break;
     default:
         ScriptMessage("Isso não é o Deltarune");
         return;
@@ -59,7 +62,7 @@ for (int code_index = 0; code_index < script_list.Count; code_index++)
     UndertaleCode code = Data.Code.ByName(script_list[code_index].Trim());
     var context = new DecompileContext(globalDecompileContext, code, decompilerSettings);
     BlockNode DecompiledCode = (BlockNode)context.DecompileToAST();
-    //Console.WriteLine($"Processando script {code_index + 1}/{script_list.Count}: {script_list[code_index]}");
+    Console.WriteLine($"Processando script {code_index + 1}/{script_list.Count}: {script_list[code_index]}");
     CheckChildren(DecompiledCode);
 }
 
@@ -71,18 +74,22 @@ File.WriteAllText(en_lang_path, json);
 
 void do_smt(List<IExpressionNode> Arguments)
 {
-    achado++;
-    StringNode valueString = (StringNode)Arguments.First();
-    StringNode keyString = (StringNode)Arguments.Last();
-    lang_entries[keyString.Value.Content] = valueString.Value.Content;
+    if (Arguments.Last() is StringNode keyString)
+    {
+        achado++;
+        StringNode valueString = (StringNode)Arguments.First();
+        lang_entries[keyString.Value.Content] = valueString.Value.Content;
+    }
 }
 
 void do_smt_msgsetloc(List<IExpressionNode> Arguments)
 {
-    achado++;
-    StringNode valueString = (StringNode)Arguments[1];
-    StringNode keyString = (StringNode)Arguments.Last();
-    lang_entries[keyString.Value.Content] = valueString.Value.Content;
+    if (Arguments.Last() is StringNode keyString)
+    {
+        achado++;
+        StringNode valueString = (StringNode)Arguments[1];
+        lang_entries[keyString.Value.Content] = valueString.Value.Content;
+    }
 }
 
 void do_find(string Name, List<IExpressionNode> Arguments)
