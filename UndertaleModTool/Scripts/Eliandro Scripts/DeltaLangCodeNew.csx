@@ -16,6 +16,7 @@ using Underanalyzer;
 using Underanalyzer.Decompiler;
 using Underanalyzer.Decompiler.AST;
 using Underanalyzer.Compiler.Nodes;
+using System.Runtime.Serialization;
 
 EnsureDataLoaded();
 
@@ -106,96 +107,111 @@ void do_find(string Name, List<IExpressionNode> Arguments)
     {
         do_smt_msgsetloc(Arguments);
     }
+    else
+    {
+        CheckChildren_multi_istate(Arguments.Select(x => x as IStatementNode).ToList());
+    }
 }
 
 void CheckChildren(BlockNode block)
 {
     foreach (IStatementNode stmt in block.Children)
     {
-        if (stmt is FunctionCallNode funcCall)
-        {
-            do_find(funcCall.Function.Name.Content, funcCall.Arguments);
-        }
-        else if (stmt is FunctionDeclNode FuncDel)
-        {
-            CheckChildren(FuncDel.Body);
-        }
-        else if (stmt is VariableCallNode variableCallNode)
-        {
-            string FuncName = "null";
-            /*
-            if (variableCallNode.Function is FunctionReferenceNode functionRef)
-            {
-                FuncName = functionRef.Function.Name.Content;
-            }
-            else if (variableCallNode.Function is FunctionCallNode funccall)
-            {
-                FuncName = funccall.Function.Name.Content;
-            }
-            else if (variableCallNode.Function is IGMFunction funccallo)
-            {
-                FuncName = funccallo.Name.Content;
-            }
-            do_find(FuncName, variableCallNode.Arguments);
-            Console.WriteLine($"Encontrado valor de função sendo atribuído a variável: {FuncName}");
-            */
-            ValFuncCount++;
-        }
-        else if (stmt is IfNode ifNode)
-        {
-            if (ifNode.TrueBlock != null)
-                CheckChildren(ifNode.TrueBlock);
-            if (ifNode.ElseBlock != null)
-                CheckChildren(ifNode.ElseBlock);
-        }
-        else if (stmt is ForLoopNode forloop)
-        {
-            CheckChildren(forloop.Body);
-            if (forloop.Incrementor != null)
-                CheckChildren(forloop.Incrementor);
-        }
-        else if (stmt is SwitchNode switchcase)
-        {
-            CheckChildren(switchcase.Body);
-        }
-        else if (stmt is WhileLoopNode whileLoop)
-        {
-            CheckChildren(whileLoop.Body);
-        }
-        else if (stmt is WithLoopNode withLoop)
-        {
-            CheckChildren(withLoop.Body);
-        }
-        else if (stmt is RepeatLoopNode RepeatLoop)
-        {
-            CheckChildren(RepeatLoop.Body);
-        }
-        else if (stmt is StructNode structNode)
-        {
-            CheckChildren(structNode.Body);
-        }
-        else if (stmt is DoUntilLoopNode doUntilLoopNode)
-        {
-            CheckChildren(doUntilLoopNode.Body);
-        }
-        else if (stmt is StaticInitNode staticInitNode)
-        {
-            CheckChildren(staticInitNode.Body);
-        }
-        else if (stmt is BlockNode blockNode)
-        {
-            CheckChildren(blockNode);
-        }
-        else if (stmt is TryCatchNode tryCatchNode)
-        {
-            CheckChildren(tryCatchNode.Try);
-            if (tryCatchNode.Catch != null)
-                CheckChildren(tryCatchNode.Catch);
-            if (tryCatchNode.Finally != null)
-                CheckChildren(tryCatchNode.Finally);
-        }
-        algodeveriaacontecer++;
+        CheckChildren_single_istate(stmt);
     }
+}
+
+void CheckChildren_multi_istate(List<IStatementNode> block)
+{
+    foreach (IStatementNode stmt in block)
+    {
+        CheckChildren_single_istate(stmt);
+    }
+}
+
+void CheckChildren_single_istate(IStatementNode stmt)
+{
+    if (stmt is FunctionCallNode funcCall)
+    {
+        do_find(funcCall.Function.Name.Content, funcCall.Arguments);
+    }
+    else if (stmt is FunctionDeclNode FuncDel)
+    {
+        CheckChildren(FuncDel.Body);
+    }
+    else if (stmt is VariableCallNode variableCallNode)
+    {
+        string FuncName = "null";
+        if (variableCallNode.Function is FunctionReferenceNode functionRef)
+        {
+            FuncName = functionRef.Function.Name.Content;
+        }
+        else if (variableCallNode.Function is FunctionCallNode funccall)
+        {
+            FuncName = funccall.Function.Name.Content;
+        }
+        else if (variableCallNode.Function is IGMFunction funccallo)
+        {
+            FuncName = funccallo.Name.Content;
+        }
+        do_find(FuncName, variableCallNode.Arguments);
+        //Console.WriteLine($"Encontrado valor de função sendo atribuído a variável: {FuncName}");
+        ValFuncCount++;
+    }
+    else if (stmt is IfNode ifNode)
+    {
+        if (ifNode.TrueBlock != null)
+            CheckChildren(ifNode.TrueBlock);
+        if (ifNode.ElseBlock != null)
+            CheckChildren(ifNode.ElseBlock);
+    }
+    else if (stmt is ForLoopNode forloop)
+    {
+        CheckChildren(forloop.Body);
+        if (forloop.Incrementor != null)
+            CheckChildren(forloop.Incrementor);
+    }
+    else if (stmt is SwitchNode switchcase)
+    {
+        CheckChildren(switchcase.Body);
+    }
+    else if (stmt is WhileLoopNode whileLoop)
+    {
+        CheckChildren(whileLoop.Body);
+    }
+    else if (stmt is WithLoopNode withLoop)
+    {
+        CheckChildren(withLoop.Body);
+    }
+    else if (stmt is RepeatLoopNode RepeatLoop)
+    {
+        CheckChildren(RepeatLoop.Body);
+    }
+    else if (stmt is StructNode structNode)
+    {
+        CheckChildren(structNode.Body);
+    }
+    else if (stmt is DoUntilLoopNode doUntilLoopNode)
+    {
+        CheckChildren(doUntilLoopNode.Body);
+    }
+    else if (stmt is StaticInitNode staticInitNode)
+    {
+        CheckChildren(staticInitNode.Body);
+    }
+    else if (stmt is BlockNode blockNode)
+    {
+        CheckChildren(blockNode);
+    }
+    else if (stmt is TryCatchNode tryCatchNode)
+    {
+        CheckChildren(tryCatchNode.Try);
+        if (tryCatchNode.Catch != null)
+            CheckChildren(tryCatchNode.Catch);
+        if (tryCatchNode.Finally != null)
+            CheckChildren(tryCatchNode.Finally);
+    }
+    algodeveriaacontecer++;
 }
 
 class LISTAS
