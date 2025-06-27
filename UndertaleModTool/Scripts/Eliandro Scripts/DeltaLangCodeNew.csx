@@ -113,6 +113,10 @@ void CheckChildren(BlockNode block)
         {
             do_find(funcCall);
         }
+        else if (stmt is FunctionDeclNode FuncDel)
+        {
+            CheckChildren(FuncDel.Body);
+        }
         else if (stmt is IfNode ifNode)
         {
             if (ifNode.TrueBlock != null)
@@ -123,6 +127,8 @@ void CheckChildren(BlockNode block)
         else if (stmt is ForLoopNode forloop)
         {
             CheckChildren(forloop.Body);
+            if (forloop.Incrementor != null)
+                CheckChildren(forloop.Incrementor);
         }
         else if (stmt is SwitchNode switchcase)
         {
