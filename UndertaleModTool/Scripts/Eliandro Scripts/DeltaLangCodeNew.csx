@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Underanalyzer.Decompiler;
 using Underanalyzer.Decompiler.AST;
+using Underanalyzer.Compiler.Nodes;
 
 EnsureDataLoaded();
 
@@ -56,50 +57,7 @@ for (int code_index = 0; code_index < script_list.Count; code_index++)
     var context = new DecompileContext(globalDecompileContext, code, decompilerSettings);
     BlockNode DecompiledCode = (BlockNode)context.DecompileToAST();
     Console.WriteLine($"Processando script {code_index + 1}/{script_list.Count}: {script_list[code_index]}");
-    foreach (IStatementNode stmt in DecompiledCode.Children)
-    {
-        if (stmt is FunctionCallNode { Function.Name.Content: "gml_Script_c_msgnextloc"} funcCall1)
-        {
-            do_smt(funcCall1);
-        }
-        else if (stmt is FunctionCallNode { Function.Name.Content: "gml_Script_c_msgnextsubloc" } funcCall2)
-        {
-            do_smt(funcCall2);
-        }
-        else if (stmt is FunctionCallNode { Function.Name.Content: "gml_Script_c_msgsetloc" } funcCall3)
-        {
-            do_smt_msgsetloc(funcCall3);
-        }
-        else if (stmt is FunctionCallNode { Function.Name.Content: "gml_Script_c_msgsetsubloc" } funcCall4)
-        {
-            do_smt_msgsetloc(funcCall4);
-        }
-        else if (stmt is FunctionCallNode { Function.Name.Content: "gml_Script_msgnextloc" } funcCall5)
-        {
-            do_smt(funcCall5);
-        }
-        else if (stmt is FunctionCallNode { Function.Name.Content: "gml_Script_msgnextsubloc" } funcCall6)
-        {
-            do_smt(funcCall6);
-        }
-        else if (stmt is FunctionCallNode { Function.Name.Content: "gml_Script_msgsetloc" } funcCall7)
-        {
-            do_smt_msgsetloc(funcCall7);
-        }
-        else if (stmt is FunctionCallNode { Function.Name.Content: "gml_Script_msgsetsubloc" } funcCall8)
-        {
-            do_smt_msgsetloc(funcCall8);
-        }
-        else if (stmt is FunctionCallNode { Function.Name.Content: "gml_Script_stringsetloc" } funcCall9)
-        {
-            do_smt(funcCall9);
-        }
-        else if (stmt is FunctionCallNode { Function.Name.Content: "gml_Script_stringsetsubloc" } funcCall10)
-        {
-            do_smt(funcCall10);
-        }
-        algodeveriaacontecer++;
-    }
+    CheckChildren(DecompiledCode);
 }
 
 Console.WriteLine($"Total de IStatements processados: {algodeveriaacontecer}");
@@ -121,6 +79,93 @@ void do_smt_msgsetloc(FunctionCallNode funcCall)
     StringNode valueString = (StringNode)funcCall.Arguments[1];
     StringNode keyString = (StringNode)funcCall.Arguments.Last();
     lang_entries[keyString.Value.Content] = valueString.Value.Content;
+}
+
+void do_find(FunctionCallNode funcCall)
+{
+    if (
+        funcCall.Function.Name.Content == "gml_Script_c_msgnextloc" ||
+        funcCall.Function.Name.Content == "gml_Script_c_msgnextsubloc" ||
+        funcCall.Function.Name.Content == "gml_Script_msgnextloc" ||
+        funcCall.Function.Name.Content == "gml_Script_msgnextsubloc" ||
+        funcCall.Function.Name.Content == "gml_Script_stringsetloc" ||
+        funcCall.Function.Name.Content == "gml_Script_stringsetsubloc"
+        )
+    {
+        do_smt(funcCall);
+    }
+    else if (
+        funcCall.Function.Name.Content == "gml_Script_c_msgsetloc" ||
+        funcCall.Function.Name.Content == "gml_Script_c_msgsetsubloc" ||
+        funcCall.Function.Name.Content == "gml_Script_msgsetloc" ||
+        funcCall.Function.Name.Content == "gml_Script_msgsetsubloc"
+        )
+    {
+        do_smt_msgsetloc(funcCall);
+    }
+}
+
+void CheckChildren(BlockNode block)
+{
+    foreach (IStatementNode stmt in block.Children)
+    {
+        if (stmt is FunctionCallNode funcCall)
+        {
+            do_find(funcCall);
+        }
+        else if (stmt is IfNode ifNode)
+        {
+            if (ifNode.TrueBlock != null)
+                CheckChildren(ifNode.TrueBlock);
+            if (ifNode.ElseBlock != null)
+                CheckChildren(ifNode.ElseBlock);
+        }
+        else if (stmt is ForLoopNode forloop)
+        {
+            CheckChildren(forloop.Body);
+        }
+        else if (stmt is SwitchNode switchcase)
+        {
+            CheckChildren(switchcase.Body);
+        }
+        else if (stmt is WhileLoopNode whileLoop)
+        {
+            CheckChildren(whileLoop.Body);
+        }
+        else if (stmt is WithLoopNode withLoop)
+        {
+            CheckChildren(withLoop.Body);
+        }
+        else if (stmt is RepeatLoopNode RepeatLoop)
+        {
+            CheckChildren(RepeatLoop.Body);
+        }
+        else if (stmt is StructNode structNode)
+        {
+            CheckChildren(structNode.Body);
+        }
+        else if (stmt is DoUntilLoopNode doUntilLoopNode)
+        {
+            CheckChildren(doUntilLoopNode.Body);
+        }
+        else if (stmt is StaticInitNode staticInitNode)
+        {
+            CheckChildren(staticInitNode.Body);
+        }
+        else if (stmt is BlockNode blockNode)
+        {
+            CheckChildren(blockNode);
+        }
+        else if (stmt is TryCatchNode tryCatchNode)
+        {
+            CheckChildren(tryCatchNode.Try);
+            if (tryCatchNode.Catch != null)
+                CheckChildren(tryCatchNode.Catch);
+            if (tryCatchNode.Finally != null)
+                CheckChildren(tryCatchNode.Finally);
+        }
+        algodeveriaacontecer++;
+    }
 }
 
 class LISTAS
