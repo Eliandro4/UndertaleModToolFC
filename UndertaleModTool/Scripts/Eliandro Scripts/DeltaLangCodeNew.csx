@@ -141,21 +141,13 @@ void CheckChildren_single_istate(IStatementNode stmt)
     }
     else if (stmt is VariableCallNode variableCallNode)
     {
-        string FuncName = "null";
-        if (variableCallNode.Function is FunctionReferenceNode functionRef)
+        List<IExpressionNode> Argumentoos1 = [variableCallNode.Function];
+        Argumentoos1.AddRange(variableCallNode.Arguments);
+        if (variableCallNode.Instance != null)
         {
-            FuncName = functionRef.Function.Name.Content;
+            Argumentoos1.Add(variableCallNode.Instance);
         }
-        else if (variableCallNode.Function is FunctionCallNode funccall)
-        {
-            FuncName = funccall.Function.Name.Content;
-        }
-        else if (variableCallNode.Function is IGMFunction funccallo)
-        {
-            FuncName = funccallo.Name.Content;
-        }
-        do_find(FuncName, variableCallNode.Arguments);
-        //Console.WriteLine($"Encontrado valor de função sendo atribuído a variável: {FuncName}");
+        CheckChildren_multi_istate(Argumentoos1.Select(x => x as IStatementNode).ToList());
         ValFuncCount++;
     }
     else if (stmt is IfNode ifNode)
@@ -210,6 +202,37 @@ void CheckChildren_single_istate(IStatementNode stmt)
             CheckChildren(tryCatchNode.Catch);
         if (tryCatchNode.Finally != null)
             CheckChildren(tryCatchNode.Finally);
+    }
+    else if (stmt is AssignNode Assino)
+    {
+        List<IExpressionNode> Argumentos1 = [Assino.Variable, Assino.Value];
+        CheckChildren_multi_istate(Argumentos1.Select(x => x as IStatementNode).ToList());
+    }
+    else if (stmt is ConditionalNode conditionalNode)
+    {
+        List<IExpressionNode> Argumentos2 = [conditionalNode.Condition, conditionalNode.True, conditionalNode.False];
+        CheckChildren_multi_istate(Argumentos2.Select(x => x as IStatementNode).ToList());
+    }
+    else if (stmt is NewObjectNode newObjectNode)
+    {
+        List<IExpressionNode> Argumentos3 = [newObjectNode.Function];
+        Argumentos3.AddRange(newObjectNode.Arguments);
+        CheckChildren_multi_istate(Argumentos3.Select(x => x as IStatementNode).ToList());
+    }
+    else if (stmt is ArrayInitNode arrayInitNode)
+    {
+        CheckChildren_multi_istate(arrayInitNode.Elements.Select(x => x as IStatementNode).ToList());
+    }
+    else if (stmt is NullishCoalesceNode nullishCoalesceNode)
+    {
+        List<IExpressionNode> Argumentos4 = [nullishCoalesceNode.Left, nullishCoalesceNode.Right];
+        CheckChildren_multi_istate(Argumentos4.Select(x => x as IStatementNode).ToList());
+    }
+    else if (stmt is VariableNode variableNode)
+    {
+        List<IExpressionNode> Argumentos5 = [variableNode.Left];
+        Argumentos5.AddRange(variableNode.ArrayIndices);
+        CheckChildren_multi_istate(Argumentos5.Select(x => x as IStatementNode).ToList());
     }
     algodeveriaacontecer++;
 }
