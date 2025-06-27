@@ -59,7 +59,7 @@ for (int code_index = 0; code_index < script_list.Count; code_index++)
     UndertaleCode code = Data.Code.ByName(script_list[code_index].Trim());
     var context = new DecompileContext(globalDecompileContext, code, decompilerSettings);
     BlockNode DecompiledCode = (BlockNode)context.DecompileToAST();
-    Console.WriteLine($"Processando script {code_index + 1}/{script_list.Count}: {script_list[code_index]}");
+    //Console.WriteLine($"Processando script {code_index + 1}/{script_list.Count}: {script_list[code_index]}");
     CheckChildren(DecompiledCode);
 }
 
@@ -152,6 +152,23 @@ void CheckChildren_single_istate(IStatementNode stmt)
     }
     else if (stmt is IfNode ifNode)
     {
+        if (ifNode.Condition is ShortCircuitNode ifsc)
+        {
+            CheckChildren_multi_istate(ifsc.Conditions.Select(x => x as IStatementNode).ToList());
+        }
+        else if (ifNode.Condition is BinaryNode binarynode)
+        {
+            List<IExpressionNode> Argumenturos = [binarynode.Left, binarynode.Right];
+            CheckChildren_multi_istate(Argumenturos.Select(x => x as IStatementNode).ToList());
+        }
+        /*
+        else if (ifNode.Condition is VariableNode variaburonode)
+        {
+            CheckChildren_single_istate((IStatementNode)variaburonode.Left);
+        }
+        */
+        //Console.WriteLine("Encontrado IfNode com FunctionCall: " + iffuncall.Function.Name.Content);
+        //Console.WriteLine(typeof(IfNode).Name + " " + ifNode.Condition.GetType().Name);
         if (ifNode.TrueBlock != null)
             CheckChildren(ifNode.TrueBlock);
         if (ifNode.ElseBlock != null)
