@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
+using Underanalyzer;
 using Underanalyzer.Decompiler;
 using Underanalyzer.Decompiler.AST;
 using Underanalyzer.Compiler.Nodes;
@@ -50,6 +51,7 @@ switch (Data.GeneralInfo.DisplayName.ToString().Replace("\"", ""))
 
 int achado = 0;
 int algodeveriaacontecer = 0;
+int ValFuncCount = 0;
 
 for (int code_index = 0; code_index < script_list.Count; code_index++)
 {
@@ -62,46 +64,47 @@ for (int code_index = 0; code_index < script_list.Count; code_index++)
 
 Console.WriteLine($"Total de IStatements processados: {algodeveriaacontecer}");
 Console.WriteLine($"Total de entradas encontradas: {achado}");
+Console.WriteLine($"Total de valores retornados de funções sendo atribuido como valor de variável: {ValFuncCount}");
 string json = JsonConvert.SerializeObject(lang_entries, Formatting.Indented);
 File.WriteAllText(en_lang_path, json);
 
-void do_smt(FunctionCallNode funcCall)
+void do_smt(List<IExpressionNode> Arguments)
 {
     achado++;
-    StringNode valueString = (StringNode)funcCall.Arguments.First();
-    StringNode keyString = (StringNode)funcCall.Arguments.Last();
+    StringNode valueString = (StringNode)Arguments.First();
+    StringNode keyString = (StringNode)Arguments.Last();
     lang_entries[keyString.Value.Content] = valueString.Value.Content;
 }
 
-void do_smt_msgsetloc(FunctionCallNode funcCall)
+void do_smt_msgsetloc(List<IExpressionNode> Arguments)
 {
     achado++;
-    StringNode valueString = (StringNode)funcCall.Arguments[1];
-    StringNode keyString = (StringNode)funcCall.Arguments.Last();
+    StringNode valueString = (StringNode)Arguments[1];
+    StringNode keyString = (StringNode)Arguments.Last();
     lang_entries[keyString.Value.Content] = valueString.Value.Content;
 }
 
-void do_find(FunctionCallNode funcCall)
+void do_find(string Name, List<IExpressionNode> Arguments)
 {
     if (
-        funcCall.Function.Name.Content == "gml_Script_c_msgnextloc" ||
-        funcCall.Function.Name.Content == "gml_Script_c_msgnextsubloc" ||
-        funcCall.Function.Name.Content == "gml_Script_msgnextloc" ||
-        funcCall.Function.Name.Content == "gml_Script_msgnextsubloc" ||
-        funcCall.Function.Name.Content == "gml_Script_stringsetloc" ||
-        funcCall.Function.Name.Content == "gml_Script_stringsetsubloc"
+        Name == "gml_Script_c_msgnextloc" ||
+        Name == "gml_Script_c_msgnextsubloc" ||
+        Name == "gml_Script_msgnextloc" ||
+        Name == "gml_Script_msgnextsubloc" ||
+        Name == "gml_Script_stringsetloc" ||
+        Name == "gml_Script_stringsetsubloc"
         )
     {
-        do_smt(funcCall);
+        do_smt(Arguments);
     }
     else if (
-        funcCall.Function.Name.Content == "gml_Script_c_msgsetloc" ||
-        funcCall.Function.Name.Content == "gml_Script_c_msgsetsubloc" ||
-        funcCall.Function.Name.Content == "gml_Script_msgsetloc" ||
-        funcCall.Function.Name.Content == "gml_Script_msgsetsubloc"
+        Name == "gml_Script_c_msgsetloc" ||
+        Name == "gml_Script_c_msgsetsubloc" ||
+        Name == "gml_Script_msgsetloc" ||
+        Name == "gml_Script_msgsetsubloc"
         )
     {
-        do_smt_msgsetloc(funcCall);
+        do_smt_msgsetloc(Arguments);
     }
 }
 
@@ -111,11 +114,32 @@ void CheckChildren(BlockNode block)
     {
         if (stmt is FunctionCallNode funcCall)
         {
-            do_find(funcCall);
+            do_find(funcCall.Function.Name.Content, funcCall.Arguments);
         }
         else if (stmt is FunctionDeclNode FuncDel)
         {
             CheckChildren(FuncDel.Body);
+        }
+        else if (stmt is VariableCallNode variableCallNode)
+        {
+            string FuncName = "null";
+            /*
+            if (variableCallNode.Function is FunctionReferenceNode functionRef)
+            {
+                FuncName = functionRef.Function.Name.Content;
+            }
+            else if (variableCallNode.Function is FunctionCallNode funccall)
+            {
+                FuncName = funccall.Function.Name.Content;
+            }
+            else if (variableCallNode.Function is IGMFunction funccallo)
+            {
+                FuncName = funccallo.Name.Content;
+            }
+            do_find(FuncName, variableCallNode.Arguments);
+            Console.WriteLine($"Encontrado valor de função sendo atribuído a variável: {FuncName}");
+            */
+            ValFuncCount++;
         }
         else if (stmt is IfNode ifNode)
         {
