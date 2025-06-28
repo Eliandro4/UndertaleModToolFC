@@ -17,6 +17,7 @@ using Underanalyzer.Decompiler;
 using Underanalyzer.Decompiler.AST;
 using Underanalyzer.Compiler.Nodes;
 using System.Runtime.Serialization;
+using Internal;
 
 EnsureDataLoaded();
 
@@ -55,7 +56,6 @@ switch (Data.GeneralInfo.DisplayName.ToString().Replace("\"", ""))
 
 int achado = 0;
 int algodeveriaacontecer = 0;
-int ValFuncCount = 0;
 
 for (int code_index = 0; code_index < script_list.Count; code_index++)
 {
@@ -68,27 +68,21 @@ for (int code_index = 0; code_index < script_list.Count; code_index++)
 
 Console.WriteLine($"Total de IStatements processados: {algodeveriaacontecer}");
 Console.WriteLine($"Total de entradas encontradas: {achado}");
-Console.WriteLine($"Total de valores retornados de funções sendo atribuido como valor de variável: {ValFuncCount}");
 string json = JsonConvert.SerializeObject(lang_entries, Formatting.Indented);
 File.WriteAllText(en_lang_path, json);
 
-void do_smt(List<IExpressionNode> Arguments)
+void do_smt(List<IExpressionNode> Arguments, bool msgsetloc_style = false)
 {
     if (Arguments.Last() is StringNode keyString)
     {
-        achado++;
-        StringNode valueString = (StringNode)Arguments.First();
-        lang_entries[keyString.Value.Content] = valueString.Value.Content;
-    }
-}
-
-void do_smt_msgsetloc(List<IExpressionNode> Arguments)
-{
-    if (Arguments.Last() is StringNode keyString)
-    {
-        achado++;
-        StringNode valueString = (StringNode)Arguments[1];
-        lang_entries[keyString.Value.Content] = valueString.Value.Content;
+        StringNode valueString = msgsetloc_style ?
+            (StringNode)Arguments[1]:
+            (StringNode)Arguments.First();
+        if (!lang_entries.ContainsKey(keyString.Value.Content))
+        {
+            lang_entries.Add(keyString.Value.Content, valueString.Value.Content);
+            achado++;
+        }
     }
 }
 
@@ -112,11 +106,7 @@ void do_find(string Name, List<IExpressionNode> Arguments)
         Name == "gml_Script_msgsetsubloc"
         )
     {
-        do_smt_msgsetloc(Arguments);
-    }
-    else
-    {
-        CheckChildren_multi_istate(Arguments.Select(x => x as IStatementNode).ToList());
+        do_smt(Arguments, true);
     }
 }
 
@@ -141,6 +131,7 @@ void CheckChildren_single_istate(IStatementNode stmt)
     if (stmt is FunctionCallNode funcCall)
     {
         do_find(funcCall.Function.Name.Content, funcCall.Arguments);
+        CheckChildren_multi_istate(funcCall.Arguments.Select(x => x as IStatementNode).ToList());
     }
     else if (stmt is FunctionDeclNode FuncDel)
     {
@@ -155,7 +146,6 @@ void CheckChildren_single_istate(IStatementNode stmt)
             Argumentoos1.Add(variableCallNode.Instance);
         }
         CheckChildren_multi_istate(Argumentoos1.Select(x => x as IStatementNode).ToList());
-        ValFuncCount++;
     }
     else if (stmt is IfNode ifNode)
     {
@@ -168,12 +158,10 @@ void CheckChildren_single_istate(IStatementNode stmt)
             List<IExpressionNode> Argumenturos = [binarynode.Left, binarynode.Right];
             CheckChildren_multi_istate(Argumenturos.Select(x => x as IStatementNode).ToList());
         }
-        /*
-        else if (ifNode.Condition is VariableNode variaburonode)
+        else if (ifNode.Condition != null)
         {
-            CheckChildren_single_istate((IStatementNode)variaburonode.Left);
+            CheckChildren_single_istate(ifNode.Condition as IStatementNode);
         }
-        */
         //Console.WriteLine("Encontrado IfNode com FunctionCall: " + iffuncall.Function.Name.Content);
         //Console.WriteLine(typeof(IfNode).Name + " " + ifNode.Condition.GetType().Name);
         if (ifNode.TrueBlock != null)
@@ -190,18 +178,22 @@ void CheckChildren_single_istate(IStatementNode stmt)
     else if (stmt is SwitchNode switchcase)
     {
         CheckChildren(switchcase.Body);
+        CheckChildren_single_istate(switchcase.Expression as IStatementNode);
     }
     else if (stmt is WhileLoopNode whileLoop)
     {
         CheckChildren(whileLoop.Body);
+        CheckChildren_single_istate(whileLoop.Condition as IStatementNode);
     }
     else if (stmt is WithLoopNode withLoop)
     {
         CheckChildren(withLoop.Body);
+        CheckChildren_single_istate(withLoop.Target as IStatementNode);
     }
     else if (stmt is RepeatLoopNode RepeatLoop)
     {
         CheckChildren(RepeatLoop.Body);
+        CheckChildren_single_istate(RepeatLoop.TimesToRepeat as IStatementNode);
     }
     else if (stmt is StructNode structNode)
     {
@@ -209,6 +201,7 @@ void CheckChildren_single_istate(IStatementNode stmt)
     }
     else if (stmt is DoUntilLoopNode doUntilLoopNode)
     {
+        CheckChildren_single_istate(doUntilLoopNode.Condition as IStatementNode);
         CheckChildren(doUntilLoopNode.Body);
     }
     else if (stmt is StaticInitNode staticInitNode)
@@ -224,6 +217,8 @@ void CheckChildren_single_istate(IStatementNode stmt)
         CheckChildren(tryCatchNode.Try);
         if (tryCatchNode.Catch != null)
             CheckChildren(tryCatchNode.Catch);
+        if (tryCatchNode.CatchVariable != null)
+            CheckChildren_single_istate(tryCatchNode.CatchVariable as IStatementNode);
         if (tryCatchNode.Finally != null)
             CheckChildren(tryCatchNode.Finally);
     }
@@ -258,6 +253,27 @@ void CheckChildren_single_istate(IStatementNode stmt)
         Argumentos5.AddRange(variableNode.ArrayIndices);
         CheckChildren_multi_istate(Argumentos5.Select(x => x as IStatementNode).ToList());
     }
+    else if (stmt is SwitchCaseNode swc)
+    {
+        if (swc.Expression != null)
+        {
+            CheckChildren_single_istate(swc.Expression as IStatementNode);
+        }
+    }
+    else if (stmt is ReturnNode returnNode)
+    {
+        CheckChildren_single_istate(returnNode.Value as IStatementNode);
+    }
+    else if (stmt is UnaryNode unaryNode)
+    {
+        CheckChildren_single_istate(unaryNode.Value as IStatementNode);
+    }
+    /*
+    else if (stmt != null)
+    {
+        Console.WriteLine($"{typeof(IStatementNode).Name} {stmt.GetType().Name}");
+    }
+    */
     algodeveriaacontecer++;
 }
 
