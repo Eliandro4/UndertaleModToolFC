@@ -63,7 +63,7 @@ for (int code_index = 0; code_index < script_list.Count; code_index++)
     var context = new DecompileContext(globalDecompileContext, code, decompilerSettings);
     BlockNode DecompiledCode = (BlockNode)context.DecompileToAST();
     Console.WriteLine($"Processando script {code_index + 1}/{script_list.Count}: {script_list[code_index]}");
-    CheckChildren(DecompiledCode);
+    CheckChildren(DecompiledCode.EnumerateChildren());
 }
 
 Console.WriteLine($"Total de IStatements processados: {algodeveriaacontecer}");
@@ -110,171 +110,17 @@ void do_find(string Name, List<IExpressionNode> Arguments)
     }
 }
 
-void CheckChildren(BlockNode block)
+void CheckChildren(IEnumerable<IBaseASTNode> block)
 {
-    foreach (IStatementNode stmt in block.Children)
+    foreach (IBaseASTNode stmt in block)
     {
-        CheckChildren_single_istate(stmt);
-    }
-}
-
-void CheckChildren_multi_istate(List<IStatementNode> block)
-{
-    foreach (IStatementNode stmt in block)
-    {
-        CheckChildren_single_istate(stmt);
-    }
-}
-
-void CheckChildren_single_istate(IStatementNode stmt)
-{
-    if (stmt is FunctionCallNode funcCall)
-    {
-        do_find(funcCall.Function.Name.Content, funcCall.Arguments);
-        CheckChildren_multi_istate(funcCall.Arguments.Select(x => x as IStatementNode).ToList());
-    }
-    else if (stmt is FunctionDeclNode FuncDel)
-    {
-        CheckChildren(FuncDel.Body);
-    }
-    else if (stmt is VariableCallNode variableCallNode)
-    {
-        List<IExpressionNode> Argumentoos1 = [variableCallNode.Function];
-        Argumentoos1.AddRange(variableCallNode.Arguments);
-        if (variableCallNode.Instance != null)
+        if (stmt is FunctionCallNode funcCall)
         {
-            Argumentoos1.Add(variableCallNode.Instance);
+            do_find(funcCall.Function.Name.Content, funcCall.Arguments);
         }
-        CheckChildren_multi_istate(Argumentoos1.Select(x => x as IStatementNode).ToList());
+        CheckChildren(stmt.EnumerateChildren());
+        algodeveriaacontecer++;
     }
-    else if (stmt is IfNode ifNode)
-    {
-        if (ifNode.Condition is ShortCircuitNode ifsc)
-        {
-            CheckChildren_multi_istate(ifsc.Conditions.Select(x => x as IStatementNode).ToList());
-        }
-        else if (ifNode.Condition is BinaryNode binarynode)
-        {
-            List<IExpressionNode> Argumenturos = [binarynode.Left, binarynode.Right];
-            CheckChildren_multi_istate(Argumenturos.Select(x => x as IStatementNode).ToList());
-        }
-        else if (ifNode.Condition != null)
-        {
-            CheckChildren_single_istate(ifNode.Condition as IStatementNode);
-        }
-        //Console.WriteLine("Encontrado IfNode com FunctionCall: " + iffuncall.Function.Name.Content);
-        //Console.WriteLine(typeof(IfNode).Name + " " + ifNode.Condition.GetType().Name);
-        if (ifNode.TrueBlock != null)
-            CheckChildren(ifNode.TrueBlock);
-        if (ifNode.ElseBlock != null)
-            CheckChildren(ifNode.ElseBlock);
-    }
-    else if (stmt is ForLoopNode forloop)
-    {
-        CheckChildren(forloop.Body);
-        if (forloop.Incrementor != null)
-            CheckChildren(forloop.Incrementor);
-    }
-    else if (stmt is SwitchNode switchcase)
-    {
-        CheckChildren(switchcase.Body);
-        CheckChildren_single_istate(switchcase.Expression as IStatementNode);
-    }
-    else if (stmt is WhileLoopNode whileLoop)
-    {
-        CheckChildren(whileLoop.Body);
-        CheckChildren_single_istate(whileLoop.Condition as IStatementNode);
-    }
-    else if (stmt is WithLoopNode withLoop)
-    {
-        CheckChildren(withLoop.Body);
-        CheckChildren_single_istate(withLoop.Target as IStatementNode);
-    }
-    else if (stmt is RepeatLoopNode RepeatLoop)
-    {
-        CheckChildren(RepeatLoop.Body);
-        CheckChildren_single_istate(RepeatLoop.TimesToRepeat as IStatementNode);
-    }
-    else if (stmt is StructNode structNode)
-    {
-        CheckChildren(structNode.Body);
-    }
-    else if (stmt is DoUntilLoopNode doUntilLoopNode)
-    {
-        CheckChildren_single_istate(doUntilLoopNode.Condition as IStatementNode);
-        CheckChildren(doUntilLoopNode.Body);
-    }
-    else if (stmt is StaticInitNode staticInitNode)
-    {
-        CheckChildren(staticInitNode.Body);
-    }
-    else if (stmt is BlockNode blockNode)
-    {
-        CheckChildren(blockNode);
-    }
-    else if (stmt is TryCatchNode tryCatchNode)
-    {
-        CheckChildren(tryCatchNode.Try);
-        if (tryCatchNode.Catch != null)
-            CheckChildren(tryCatchNode.Catch);
-        if (tryCatchNode.CatchVariable != null)
-            CheckChildren_single_istate(tryCatchNode.CatchVariable as IStatementNode);
-        if (tryCatchNode.Finally != null)
-            CheckChildren(tryCatchNode.Finally);
-    }
-    else if (stmt is AssignNode Assino)
-    {
-        List<IExpressionNode> Argumentos1 = [Assino.Variable, Assino.Value];
-        CheckChildren_multi_istate(Argumentos1.Select(x => x as IStatementNode).ToList());
-    }
-    else if (stmt is ConditionalNode conditionalNode)
-    {
-        List<IExpressionNode> Argumentos2 = [conditionalNode.Condition, conditionalNode.True, conditionalNode.False];
-        CheckChildren_multi_istate(Argumentos2.Select(x => x as IStatementNode).ToList());
-    }
-    else if (stmt is NewObjectNode newObjectNode)
-    {
-        List<IExpressionNode> Argumentos3 = [newObjectNode.Function];
-        Argumentos3.AddRange(newObjectNode.Arguments);
-        CheckChildren_multi_istate(Argumentos3.Select(x => x as IStatementNode).ToList());
-    }
-    else if (stmt is ArrayInitNode arrayInitNode)
-    {
-        CheckChildren_multi_istate(arrayInitNode.Elements.Select(x => x as IStatementNode).ToList());
-    }
-    else if (stmt is NullishCoalesceNode nullishCoalesceNode)
-    {
-        List<IExpressionNode> Argumentos4 = [nullishCoalesceNode.Left, nullishCoalesceNode.Right];
-        CheckChildren_multi_istate(Argumentos4.Select(x => x as IStatementNode).ToList());
-    }
-    else if (stmt is VariableNode variableNode)
-    {
-        List<IExpressionNode> Argumentos5 = [variableNode.Left];
-        Argumentos5.AddRange(variableNode.ArrayIndices);
-        CheckChildren_multi_istate(Argumentos5.Select(x => x as IStatementNode).ToList());
-    }
-    else if (stmt is SwitchCaseNode swc)
-    {
-        if (swc.Expression != null)
-        {
-            CheckChildren_single_istate(swc.Expression as IStatementNode);
-        }
-    }
-    else if (stmt is ReturnNode returnNode)
-    {
-        CheckChildren_single_istate(returnNode.Value as IStatementNode);
-    }
-    else if (stmt is UnaryNode unaryNode)
-    {
-        CheckChildren_single_istate(unaryNode.Value as IStatementNode);
-    }
-    /*
-    else if (stmt != null)
-    {
-        Console.WriteLine($"{typeof(IStatementNode).Name} {stmt.GetType().Name}");
-    }
-    */
-    algodeveriaacontecer++;
 }
 
 class LISTAS
