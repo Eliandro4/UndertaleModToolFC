@@ -131,7 +131,24 @@ namespace UndertaleModLib
             // Now, parse the chunks
             while (reader.Position < startPos + Length)
             {
-                UndertaleChunk chunk = reader.ReadUndertaleChunk();
+                long chunkHeaderPos = reader.AbsPosition;
+                string chunkName = reader.ReadChars(4);
+                uint chunkLength = reader.ReadUInt32();
+
+                // Out-of-bounds guard: some WADs (e.g. GameMaker Raspberry Pi ports) have chunks
+                // whose declared data length extends beyond the physical file end.
+                // The native runner skips these gracefully; mirror that behavior.
+                if (chunkHeaderPos + 8 + chunkLength > reader.Length)
+                {
+                    reader.SubmitWarning(
+                        $"Chunk \"{chunkName}\" at offset 0x{chunkHeaderPos:X8} declares length {chunkLength} " +
+                        $"(end at 0x{chunkHeaderPos + 8 + chunkLength:X8}) which exceeds file size 0x{reader.Length:X8}. " +
+                        "Skipping chunk (possible Raspberry Pi or corrupted WAD).", false);
+                    reader.AbsPosition = reader.Length;
+                    break;
+                }
+
+                UndertaleChunk chunk = reader.ReadUndertaleChunk(chunkName, chunkLength);
                 if (chunk is not null)
                 {
                     if (!Chunks.ContainsKey(chunk.Name))
@@ -151,6 +168,13 @@ namespace UndertaleModLib
             {
                 reader.undertaleData.SetLTS(true);
             }
+
+            // Warn if CODE chunk is empty or missing: this usually means a YYC/native-code game
+            // which UTMT cannot decompile (mirrors Butterscotch's YYC detection).
+            if (!Chunks.ContainsKey("CODE") || (Chunks["CODE"] is UndertaleChunkCODE codeChunk && codeChunk.List != null && codeChunk.List.Count == 0))
+            {
+                reader.SubmitWarning("CODE chunk is empty or missing. This usually indicates a YYC (native-code) game which cannot be decompiled.", false);
+            }
         }
 
         internal override uint UnserializeObjectCount(UndertaleReader reader)
@@ -159,12 +183,13 @@ namespace UndertaleModLib
 
             long startPos = reader.Position;
             reader.AllChunkNames = new List<string>();
+            List<uint> allChunkLengths = new List<uint>();
             while (reader.Position < reader.Length)
             {
                 string chunkName = reader.ReadChars(4);
                 reader.AllChunkNames.Add(chunkName);
-                uint length = reader.ReadUInt32();
-                reader.Position += length;
+                uint chunkLength = reader.ReadUInt32();
+                allChunkLengths.Add(chunkLength);
             }
             reader.Position = startPos;
 
@@ -180,9 +205,25 @@ namespace UndertaleModLib
             }
 
             // Read object counts for all chunks
+            int nameIndex = 0;
             while (reader.Position < startPos + Length)
             {
-                (uint count, UndertaleChunk chunk) = reader.CountChunkChildObjects();
+                string chunkName = reader.AllChunkNames[nameIndex];
+                uint chunkLength = allChunkLengths[nameIndex];
+                nameIndex++;
+
+                // Out-of-bounds guard: skip chunks that extend past file end
+                long chunkHeaderPos = reader.AbsPosition;
+                if (chunkHeaderPos + 8 + chunkLength > reader.Length)
+                {
+                    reader.SubmitWarning(
+                        $"Chunk \"{chunkName}\" at offset 0x{chunkHeaderPos:X8} declares length {chunkLength} " +
+                        $"(end at 0x{chunkHeaderPos + 8 + chunkLength:X8}) which exceeds file size 0x{reader.Length:X8}. " +
+                        "Skipping chunk during object counting.", false);
+                    break;
+                }
+
+                (uint count, UndertaleChunk chunk) = reader.CountChunkChildObjects(chunkName, chunkLength);
                 totalCount += count;
 
                 // Don't register a new chunk for GEN8 specifically
@@ -2014,6 +2055,37 @@ namespace UndertaleModLib
 
         private bool checkedFor2022_3 = false;
         private bool checkedFor2_0_6 = false;
+        private bool checkedFor2022_9 = false;
+
+        private void CheckFor2022_9(UndertaleReader reader)
+        {
+            if (reader.undertaleData.IsVersionAtLeast(2022, 9) || !reader.undertaleData.IsVersionAtLeast(2022, 3))
+            {
+                checkedFor2022_9 = true;
+                return;
+            }
+
+            long returnPos = reader.Position;
+            uint count = reader.ReadUInt32();
+
+            if (count >= 2)
+            {
+                uint firstPtr = reader.ReadUInt32();
+                uint secondPtr = reader.ReadUInt32();
+
+                if (firstPtr != 0 && secondPtr != 0)
+                {
+                    uint diff = secondPtr - firstPtr;
+                    if (diff == 28)
+                    {
+                        reader.undertaleData.SetGMS2Version(2022, 9);
+                    }
+                }
+            }
+
+            reader.Position = returnPos;
+            checkedFor2022_9 = true;
+        }
 
         private void CheckFor2022_3And5(UndertaleReader reader)
         {
@@ -2164,6 +2236,9 @@ namespace UndertaleModLib
             if (!checkedFor2_0_6)
                 CheckForGMS2_0_6(reader);
 
+            if (!checkedFor2022_9)
+                CheckFor2022_9(reader);
+
             base.UnserializeChunk(reader);
             reader.SwitchReaderType(false);
 
@@ -2229,9 +2304,16 @@ namespace UndertaleModLib
         {
             checkedFor2022_3 = false;
             checkedFor2_0_6 = false;
+            checkedFor2022_9 = false;
 
-            CheckFor2022_3And5(reader);
-            CheckForGMS2_0_6(reader);
+            if (!checkedFor2022_3)
+                CheckFor2022_3And5(reader);
+
+            if (!checkedFor2_0_6)
+                CheckForGMS2_0_6(reader);
+
+            if (!checkedFor2022_9)
+                CheckFor2022_9(reader);
 
             // Texture blobs are already included in the count
             return base.UnserializeObjectCount(reader);
