@@ -203,8 +203,6 @@ namespace UndertaleModLib
         /// </summary>
         public string Directory { get; set; } = null;
 
-        public UndertaleIO.LoadType LoadType { get; set; } = UndertaleIO.LoadType.Normal;
-
         internal readonly record struct BytecodeInformation(uint InstructionCount, UndertaleCode RootEntry);
 
         internal Dictionary<uint, BytecodeInformation> BytecodeAddresses;
@@ -250,19 +248,9 @@ namespace UndertaleModLib
         {
             return UndertaleChunk.Unserialize(this);
         }
-
-        public UndertaleChunk ReadUndertaleChunk(string chunkName, uint chunkLength)
-        {
-            return UndertaleChunk.Unserialize(this, chunkName, chunkLength);
-        }
         public (uint, UndertaleChunk) CountChunkChildObjects()
         {
             return UndertaleChunk.CountChunkChildObjects(this);
-        }
-
-        public (uint, UndertaleChunk) CountChunkChildObjects(string chunkName, uint chunkLength)
-        {
-            return UndertaleChunk.CountChunkChildObjects(this, chunkName, chunkLength);
         }
 
         private readonly List<UndertaleResourceRef> _resourceRefsToResolve = new(256);
@@ -277,11 +265,7 @@ namespace UndertaleModLib
             // Ensure root chunk is called "FORM"
             string name = ReadChars(4);
             if (name != "FORM")
-            {
-                string warnMsg = $"The file does not have the expected FORM magic, got \"{name}\". " +
-                                 "The file may not be a WAD or it may have been tampered with!";
-                SubmitWarning(warnMsg, false);
-            }
+                throw new IOException($"Root chunk is \"{name}\", not FORM");
             uint length = ReadUInt32();
             data.FORM = new UndertaleChunkFORM
             {
@@ -1114,22 +1098,11 @@ namespace UndertaleModLib
 
     public static class UndertaleIO
     {
-        public enum LoadType
-        {
-            Normal,
-            LoadInMemoryAheadOfTime
-        }
-
         public static UndertaleData Read(Stream stream, UndertaleReader.WarningHandlerDelegate warningHandler = null,
-                                                            UndertaleReader.MessageHandlerDelegate messageHandler = null,
-                                                            bool onlyGeneralInfo = false, LoadType loadType = LoadType.Normal)
+                                                        UndertaleReader.MessageHandlerDelegate messageHandler = null,
+                                                        bool onlyGeneralInfo = false)
         {
             UndertaleReader reader = new(stream, warningHandler, messageHandler, onlyGeneralInfo);
-            reader.LoadType = loadType;
-
-            if (loadType == LoadType.LoadInMemoryAheadOfTime)
-                reader.EnableWholeFileBufferMode();
-
             UndertaleData data = reader.ReadUndertaleData();
             reader.ThrowIfUnreadObjects();
             return data;

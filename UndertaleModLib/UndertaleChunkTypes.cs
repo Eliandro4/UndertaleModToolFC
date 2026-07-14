@@ -60,15 +60,14 @@ namespace UndertaleModLib
 
         public static UndertaleChunk Unserialize(UndertaleReader reader)
         {
-            string name = reader.ReadChars(4);
-            uint length = reader.ReadUInt32();
-            return Unserialize(reader, name, length);
-        }
-
-        public static UndertaleChunk Unserialize(UndertaleReader reader, string name, uint length)
-        {
+            string name = "(unknown)";
             try
             {
+                // Read name and length
+                name = reader.ReadChars(4);
+                uint length = reader.ReadUInt32();
+
+                // Find chunk instance, or create one if not already created (when errors occur during object counting)
                 if (!reader.undertaleData.FORM.Chunks.TryGetValue(name, out UndertaleChunk chunk))
                 {
                     if (!UndertaleChunkFORM.ChunkConstructors.TryGetValue(name, out Func<UndertaleChunk> instantiator))
@@ -82,16 +81,21 @@ namespace UndertaleModLib
                                       $"Chunk name mismatch: expected \"{name}\", got \"{chunk.Name}\".");
                 chunk.Length = length;
 
+                // Read chunk contents
                 reader.SubmitMessage("Reading chunk " + chunk.Name);
                 EnsureLengthOperation lenReader = reader.EnsureLengthFromHere(chunk.Length);
                 reader.CopyChunkToBuffer(length);
                 chunk.UnserializeChunk(reader);
 
+                // Process padding
                 reader.SwitchReaderType(false);
                 if (name != "FORM" && name != reader.LastChunkName)
                 {
                     UndertaleGeneralInfo generalInfo = name == "GEN8" ? ((UndertaleChunkGEN8)chunk).Object : reader.undertaleData.GeneralInfo;
 
+                    // These versions introduced new padding
+                    // all chunks now start on 16-byte boundaries
+                    // (but the padding is included with length of previous chunk)
                     if (generalInfo.Major >= 2 || (generalInfo.Major == 1 && generalInfo.Build >= 9999))
                     {
                         int e = reader.undertaleData.PaddingAlignException;
@@ -111,6 +115,7 @@ namespace UndertaleModLib
                     }
                 }
 
+                // Ensure full length was read
                 lenReader.ToHere();
 
                 return chunk;
@@ -126,15 +131,14 @@ namespace UndertaleModLib
         }
         public static (uint, UndertaleChunk) CountChunkChildObjects(UndertaleReader reader)
         {
-            string name = reader.ReadChars(4);
-            uint length = reader.ReadUInt32();
-            return CountChunkChildObjects(reader, name, length);
-        }
-
-        public static (uint, UndertaleChunk) CountChunkChildObjects(UndertaleReader reader, string name, uint length)
-        {
+            string name = "(unknown)";
             try
             {
+                // Read name and length
+                name = reader.ReadChars(4);
+                uint length = reader.ReadUInt32();
+
+                // Create chunk instance
                 if (!UndertaleChunkFORM.ChunkConstructors.TryGetValue(name, out Func<UndertaleChunk> instantiator))
                 {
                     throw new IOException($"Unknown chunk \"{name}\"");
@@ -144,11 +148,13 @@ namespace UndertaleModLib
                                       $"Chunk name mismatch: expected \"{name}\", got \"{chunk.Name}\".");
                 chunk.Length = length;
 
+                // Count objects in chunk
                 long chunkStart = reader.Position;
                 reader.SubmitMessage("Counting objects of chunk " + chunk.Name);
                 reader.CopyChunkToBuffer(length);
                 uint count = chunk.UnserializeObjectCount(reader);
 
+                // Advance beyond chunk length (parts of the chunk may have been skipped)
                 reader.SwitchReaderType(false);
                 reader.Position = chunkStart + chunk.Length;
 

@@ -45,14 +45,6 @@ namespace UndertaleModLib.Util
         // absolute offsets outside of their declaring chunk (e.g. WinPack / TranslaTale).
         private long bufferChunkStart = 0;
         private long bufferChunkLength = 0;
-
-        // When true, the entire file is loaded into a MemoryStream up front.
-        // This enables reading objects at absolute offsets outside their declaring chunk
-        // without needing to seek on the original stream (mirrors Butterscotch's
-        // LOAD_IN_MEMORY_AHEAD_OF_TIME mode for WinPack/TranslaTale WADs).
-        private bool wholeFileMode = false;
-        private MemoryStream wholeFileStream = null;
-
         private IBinaryReader CurrentReader
         {
             get => _currentReader;
@@ -78,7 +70,7 @@ namespace UndertaleModLib.Util
                 if (isUsingBufferReader)
                     return bufferBinaryReader.Position;
                 else
-                    return fileBinaryReader.Position;
+                    return Stream.Position;
             }
             set
             {
@@ -86,6 +78,7 @@ namespace UndertaleModLib.Util
                 {
                     if (value < 0 || value > bufferChunkLength + 8)
                     {
+                        // Target falls outside the buffered chunk; fall back to the file stream.
                         SwitchReaderType(false);
                         fileBinaryReader.Position = bufferChunkStart - 8 + value;
                     }
@@ -103,7 +96,7 @@ namespace UndertaleModLib.Util
                 if (isUsingBufferReader)
                     return bufferBinaryReader.ChunkStartPosition + bufferBinaryReader.Position - 8;
                 else
-                    return fileBinaryReader.Position;
+                    return Stream.Position;
             }
             set
             {
@@ -112,6 +105,9 @@ namespace UndertaleModLib.Util
                     long bufPos = value - bufferBinaryReader.ChunkStartPosition + 8;
                     if (bufPos < 0 || bufPos > bufferChunkLength + 8)
                     {
+                        // The requested offset is outside the current chunk's buffered region.
+                        // Fall back to the file stream so that object data stored at absolute offsets
+                        // outside of its declaring chunk (e.g. WinPack / TranslaTale WADs) can be read.
                         SwitchReaderType(false);
                         fileBinaryReader.Position = value;
                     }
@@ -141,51 +137,8 @@ namespace UndertaleModLib.Util
                 this.encoding = encoding;
         }
 
-        /// <summary>
-        /// Loads the entire file into a MemoryStream up front. After calling this, the reader
-        /// operates from the in-memory copy, which enables seamless absolute-offset reads for
-        /// objects stored outside their declaring IFF chunk (e.g. WinPack / TranslaTale WADs).
-        /// Mirrors Butterscotch's DATAWINLOADTYPE_LOAD_IN_MEMORY_AHEAD_OF_TIME.
-        /// </summary>
-        public void EnableWholeFileBufferMode()
-        {
-            if (wholeFileMode)
-                return;
-
-            if (!Stream.CanSeek)
-                throw new IOException("Cannot enable whole-file buffer mode: stream is not seekable.");
-
-            long fileLength = Stream.Length;
-            byte[] fileData = new byte[fileLength];
-            Stream.Position = 0;
-            Stream.Read(fileData, 0, (int)fileLength);
-            wholeFileStream = new MemoryStream(fileData, writable: false);
-
-            // Replace both underlying readers' streams with the MemoryStream copy.
-            // The buffer reader will read from it directly; the file reader tracks position
-            // separately via AbsPosition sync in SwitchReaderType.
-            bufferBinaryReader.Stream = wholeFileStream;
-            fileBinaryReader.Stream = wholeFileStream;
-            wholeFileMode = true;
-
-            // Reset to file start on the whole-file stream
-            wholeFileStream.Position = 0;
-            fileBinaryReader.Position = 0;
-        }
-
         public void CopyChunkToBuffer(uint length)
         {
-            if (wholeFileMode)
-            {
-                // In whole-file mode the entire file is already in the buffer reader's stream.
-                // Just track the chunk start for AbsPosition calculations; no copy needed.
-                isCurrChunkTooLarge = false;
-                CurrentReader = bufferBinaryReader;
-                bufferChunkStart = bufferBinaryReader.Stream.Position - 8;
-                bufferChunkLength = length;
-                return;
-            }
-
             if (length <= 12 * 1024 * 1024)
             {
                 isCurrChunkTooLarge = false;
@@ -205,16 +158,7 @@ namespace UndertaleModLib.Util
         {
             if (!isBufferBinaryReader && CurrentReader == bufferBinaryReader)
             {
-                if (wholeFileMode)
-                {
-                    // In whole-file mode both readers share the same MemoryStream.
-                    // Sync the file reader's position before switching so reads continue correctly.
-                    fileBinaryReader.Position = bufferBinaryReader.Stream.Position;
-                }
-                else
-                {
-                    fileBinaryReader.Position = AbsPosition;
-                }
+                fileBinaryReader.Position = AbsPosition;
                 CurrentReader = fileBinaryReader;
             }
             else if (isBufferBinaryReader && !isCurrChunkTooLarge
