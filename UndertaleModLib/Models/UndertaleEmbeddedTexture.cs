@@ -182,9 +182,12 @@ public class UndertaleEmbeddedTexture : UndertaleNamedResource, IDisposable
         if (_textureData == null || TextureExternal)
             return;
 
+        // Best-effort alignment only: WADs such as WinPack / TranslaTale may store the blob at an
+        // absolute offset reached by seeking (see ReadUndertaleObject), so trailing bytes before it
+        // are not guaranteed to be zero padding. The blob is read by seeking to its offset anyway.
         while (reader.AbsPosition % 0x80 != 0)
             if (reader.ReadByte() != 0)
-                throw new IOException("Padding error!");
+                break;
 
         reader.ReadUndertaleObject(_textureData);
         TextureLoaded = true;

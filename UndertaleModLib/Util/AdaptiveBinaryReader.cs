@@ -38,6 +38,13 @@ namespace UndertaleModLib.Util
         private IBinaryReader _currentReader;
         private bool isUsingBufferReader = false;
         private bool isCurrChunkTooLarge = false;
+
+        // Absolute file offset of the current chunk buffer's start, and the buffered chunk length.
+        // Used to detect when a seek target falls outside the buffered region (so we can fall back
+        // to the file stream instead of failing). Relevant for WADs that store object data at
+        // absolute offsets outside of their declaring chunk (e.g. WinPack / TranslaTale).
+        private long bufferChunkStart = 0;
+        private long bufferChunkLength = 0;
         private IBinaryReader CurrentReader
         {
             get => _currentReader;
@@ -68,7 +75,16 @@ namespace UndertaleModLib.Util
             set
             {
                 if (isUsingBufferReader)
-                    bufferBinaryReader.Position = value;
+                {
+                    if (value < 0 || value > bufferChunkLength + 8)
+                    {
+                        // Target falls outside the buffered chunk; fall back to the file stream.
+                        SwitchReaderType(false);
+                        fileBinaryReader.Position = bufferChunkStart - 8 + value;
+                    }
+                    else
+                        bufferBinaryReader.Position = (int)value;
+                }
                 else
                     fileBinaryReader.Position = value;
             }
@@ -86,9 +102,19 @@ namespace UndertaleModLib.Util
             {
                 if (isUsingBufferReader)
                 {
-                    if (value < 0 || value > Length)
-                        throw new IOException("Reading out of bounds.");
-                    bufferBinaryReader.Position = value - bufferBinaryReader.ChunkStartPosition + 8;
+                    long bufPos = value - bufferBinaryReader.ChunkStartPosition + 8;
+                    if (bufPos < 0 || bufPos > bufferChunkLength + 8)
+                    {
+                        // The requested offset is outside the current chunk's buffered region.
+                        // Fall back to the file stream so that object data stored at absolute offsets
+                        // outside of its declaring chunk (e.g. WinPack / TranslaTale WADs) can be read.
+                        SwitchReaderType(false);
+                        fileBinaryReader.Position = value;
+                    }
+                    else
+                    {
+                        bufferBinaryReader.Position = (int)bufPos;
+                    }
                 }
                 else
                     fileBinaryReader.Position = value;
@@ -118,6 +144,8 @@ namespace UndertaleModLib.Util
                 isCurrChunkTooLarge = false;
                 CurrentReader = bufferBinaryReader;
                 bufferBinaryReader.CopyChunkToBuffer(length);
+                bufferChunkStart = bufferBinaryReader.ChunkStartPosition;
+                bufferChunkLength = length;
             }
             else
             {

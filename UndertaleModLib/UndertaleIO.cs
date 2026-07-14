@@ -304,6 +304,9 @@ namespace UndertaleModLib
             data.FORM.UnserializeChunk(this);
             lenReader.ToHere();
 
+            // Resolve texture page items stored outside the TPAG chunk (WinPack/TranslaTale WADs).
+            ResolveExternalTexturePageItems(data);
+
             // Resolve resource IDs
             SubmitMessage("Resolving resource IDs...");
             foreach (UndertaleResourceRef res in _resourceRefsToResolve)
@@ -574,6 +577,89 @@ namespace UndertaleModLib
             return objectPoolRev;
         }
 
+        /// <summary>
+        /// Marks the given object as having been read, removing it from the set of
+        /// unread pointer targets. Used when an object is resolved/parsed outside of the
+        /// normal chunk flow (e.g. WinPack/TranslaTale texture page items stored at absolute
+        /// file offsets outside of the TPAG chunk).
+        /// </summary>
+        public void MarkObjectAsRead(UndertaleObject obj)
+        {
+            if (objectPoolRev.TryGetValue(obj, out uint addr))
+                unreadObjects.Remove(addr);
+        }
+
+        /// <summary>
+        /// Returns whether the object at the given absolute address was referenced but never read.
+        /// </summary>
+        internal bool IsObjectUnread(uint address)
+        {
+            return unreadObjects.Contains(address);
+        }
+
+        /// <summary>
+        /// Resolves texture page items (TPAG) that are referenced by sprites, backgrounds and
+        /// fonts via absolute file offsets, but are stored OUTSIDE of the IFF TPAG chunk.
+        /// <para>
+        /// This is the case for WADs built with WinPack (e.g. TranslaTale): such TPAG entries
+        /// are not present in the TPAG pointer list, so they are read directly from their
+        /// absolute offset and appended to the TPAG chunk. WinPack also offsets the embedded
+        /// texture index by one (it assumes the runner allocated a 1x1 white texture first).
+        /// </para>
+        /// </summary>
+        internal void ResolveExternalTexturePageItems(UndertaleData data)
+        {
+            if (data.TexturePageItems is null)
+                return;
+
+            // Addresses already covered by in-chunk TPAG entries.
+            HashSet<uint> inChunkAddresses = new();
+            foreach (UndertaleObject item in data.TexturePageItems)
+            {
+                if (GetOffsetMapRev().TryGetValue(item, out uint addr))
+                    inChunkAddresses.Add(addr);
+            }
+
+            Dictionary<uint, UndertaleObject> objPool = GetOffsetMap();
+            foreach (var kvp in objPool)
+            {
+                if (kvp.Value is not UndertaleTexturePageItem tpagItem)
+                    continue;
+                uint address = kvp.Key;
+                if (inChunkAddresses.Contains(address))
+                    continue;
+
+                // Read the TPAG entry directly from its absolute file offset.
+                SwitchReaderType(false); // ensure we can seek anywhere in the file
+                AbsPosition = address;
+
+                tpagItem.SourceX = ReadUInt16();
+                tpagItem.SourceY = ReadUInt16();
+                tpagItem.SourceWidth = ReadUInt16();
+                tpagItem.SourceHeight = ReadUInt16();
+                tpagItem.TargetX = ReadUInt16();
+                tpagItem.TargetY = ReadUInt16();
+                tpagItem.TargetWidth = ReadUInt16();
+                tpagItem.TargetHeight = ReadUInt16();
+                tpagItem.BoundingWidth = ReadUInt16();
+                tpagItem.BoundingHeight = ReadUInt16();
+
+                short texturePageId = ReadInt16();
+                // WinPack is off by one: it assumes the runner allocated a 1x1 white texture first.
+                texturePageId -= 1;
+
+                if (data.EmbeddedTextures is not null && texturePageId >= 0 && texturePageId < data.EmbeddedTextures.Count)
+                    tpagItem.TexturePage = data.EmbeddedTextures[texturePageId];
+                else
+                    SubmitWarning($"WinPack/TranslaTale TPAG at offset 0x{address:X8} references invalid texture page index {texturePageId}");
+
+                tpagItem.Name = new UndertaleString("PageItem " + data.TexturePageItems.Count);
+                data.TexturePageItems.Add(tpagItem);
+                MarkObjectAsRead(tpagItem);
+                data.IsWinPackWad = true;
+            }
+        }
+
         public void InitializePools(uint objCount = 0)
         {
             if (objCount == 0)
@@ -718,24 +804,24 @@ namespace UndertaleModLib
         public class EnsureLengthOperation
         {
             private readonly UndertaleReader reader;
-            private readonly int startPos;
+            private readonly long startPos;
             private readonly uint expectedLength;
             internal EnsureLengthOperation(UndertaleReader reader, uint expectedLength)
             {
                 this.reader = reader;
-                this.startPos = (int)reader.Position;
+                this.startPos = reader.AbsPosition;
                 this.expectedLength = expectedLength;
             }
             public void ToHere()
             {
-                int endPos = (int)reader.Position;
-                uint length = (uint)(endPos - startPos);
+                long endPos = reader.AbsPosition;
+                long length = endPos - startPos;
                 if (length != expectedLength)
                 {
-                    int diff = (int)expectedLength - (int)length;
+                    long diff = (long)expectedLength - length;
                     reader.SubmitWarning("WARNING: File specified length " + expectedLength + ", but read only " + length + " (" + diff + " padding?)");
                     if (diff > 0)
-                        reader.Position += (uint)diff;
+                        reader.AbsPosition = startPos + expectedLength;
                     else
                         throw new IOException("Read underflow");
                 }
