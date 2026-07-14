@@ -1976,7 +1976,37 @@ namespace UndertaleModLib
             long strgStart = reader.AbsPosition;
             long strgEnd = strgStart + Length;
 
-            base.UnserializeChunk(reader);
+            uint count = reader.ReadUInt32();
+            List.SetCapacity(count);
+
+            // Read the pointer table. Each entry is the absolute file offset of the string's length
+            // prefix. In normal GameMaker files the strings are laid out contiguously right after the
+            // pointer table, so reading them sequentially works; however, WADs built with WinPack /
+            // TranslaTale may relocate strings to arbitrary offsets within the chunk. Reading
+            // sequentially then misaligns and loses data, so each string is read by seeking to its own
+            // pointer instead. This mirrors how the GameMaker runner (and tools such as Butterscotch)
+            // resolve strings: purely by absolute offset.
+            uint[] pointers = new uint[count];
+            uint realCount = count;
+            for (int i = 0; i < count; i++)
+            {
+                uint readValue = reader.ReadUInt32();
+                pointers[i] = readValue;
+                if (readValue == 0)
+                    realCount--;
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                uint p = pointers[i];
+                if (p == 0)
+                    continue;
+
+                // Seek to the length prefix and read the string from there. Staying within the chunk
+                // buffer keeps the reader position consistent for the following chunks.
+                reader.AbsPosition = p;
+                List.InternalAdd(reader.ReadUndertaleObject<UndertaleString>());
+            }
 
             // Resolve string objects referenced by absolute offset but not present in the pointer
             // list. The GameMaker runner resolves strings purely by offset, so we mirror that here.
@@ -1991,18 +2021,12 @@ namespace UndertaleModLib
                 if (!reader.IsObjectUnread(address))
                     continue;
 
-                reader.SwitchReaderType(false);
                 reader.AbsPosition = address;
                 reader.ReadUndertaleObject(str);
             }
 
-            // padding
-            // Best-effort only: some WADs (e.g. WinPack / TranslaTale) store extra data such as
-            // relocated objects inside the chunk region, so trailing bytes are not guaranteed to
-            // be zero padding. Stop at the first non-zero byte rather than erroring out.
-            while (reader.AbsPosition % 0x80 != 0)
-                if (reader.ReadByte() != 0)
-                    break;
+            // Advance to the end of the chunk so the next chunk is read at the correct offset.
+            reader.AbsPosition = strgEnd;
         }
 
         // There's no need to check padding in "UnserializeObjectCount()"

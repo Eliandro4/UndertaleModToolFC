@@ -307,6 +307,11 @@ namespace UndertaleModLib
             // Resolve texture page items stored outside the TPAG chunk (WinPack/TranslaTale WADs).
             ResolveExternalTexturePageItems(data);
 
+            // Strings referenced by pointers but not present in the STRG list (e.g. font names
+            // stored inside the FONT chunk) must be added to data.Strings so they are written
+            // back on save (WinPack / TranslaTale WADs).
+            ResolveExternalStrings(data);
+
             // Resolve resource IDs
             SubmitMessage("Resolving resource IDs...");
             foreach (UndertaleResourceRef res in _resourceRefsToResolve)
@@ -656,6 +661,38 @@ namespace UndertaleModLib
                 tpagItem.Name = new UndertaleString("PageItem " + data.TexturePageItems.Count);
                 data.TexturePageItems.Add(tpagItem);
                 MarkObjectAsRead(tpagItem);
+                data.IsWinPackWad = true;
+            }
+        }
+
+        /// <summary>
+        /// Ensures that every <see cref="UndertaleString"/> referenced by a pointer is present in
+        /// <see cref="UndertaleData.Strings"/> so it gets written back into the STRG chunk on save.
+        /// <para>
+        /// In GameMaker convention every string lives in the STRG chunk and is referenced by
+        /// pointer. WADs built with WinPack (e.g. TranslaTale) can store some strings (such as
+        /// font names/display names) alongside the object that references them (e.g. inside the
+        /// FONT chunk) instead of in the STRG pointer list. Such strings are read correctly, but
+        /// are never added to <c>data.Strings</c>, so a later save fails with
+        /// "Found pointer targets that were never written". Adding them to the list lets the writer
+        /// re-emit them inside STRG and rewrite the pointers, restoring the GMCompiler convention.
+        /// </para>
+        /// </summary>
+        internal void ResolveExternalStrings(UndertaleData data)
+        {
+            if (data.Strings is null)
+                return;
+
+            IList<UndertaleString> strings = data.Strings;
+            HashSet<UndertaleString> seen = new(strings);
+            foreach (UndertaleObject obj in GetOffsetMap().Values)
+            {
+                if (obj is not UndertaleString str)
+                    continue;
+                if (seen.Contains(str))
+                    continue;
+                strings.Add(str);
+                seen.Add(str);
                 data.IsWinPackWad = true;
             }
         }
