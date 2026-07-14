@@ -1970,12 +1970,39 @@ namespace UndertaleModLib
 
         internal override void UnserializeChunk(UndertaleReader reader)
         {
+            // The STRG chunk's byte range; strings referenced by absolute offset that aren't in the
+            // pointer list (e.g. strings stored alongside relocated objects in WinPack / TranslaTale
+            // WADs) still live within this region and must be read.
+            long strgStart = reader.AbsPosition;
+            long strgEnd = strgStart + Length;
+
             base.UnserializeChunk(reader);
 
+            // Resolve string objects referenced by absolute offset but not present in the pointer
+            // list. The GameMaker runner resolves strings purely by offset, so we mirror that here.
+            Dictionary<uint, UndertaleObject> objPool = reader.GetOffsetMap();
+            foreach (var kvp in objPool)
+            {
+                if (kvp.Value is not UndertaleString str)
+                    continue;
+                uint address = kvp.Key;
+                if (address < strgStart || address >= strgEnd)
+                    continue;
+                if (!reader.IsObjectUnread(address))
+                    continue;
+
+                reader.SwitchReaderType(false);
+                reader.AbsPosition = address;
+                reader.ReadUndertaleObject(str);
+            }
+
             // padding
+            // Best-effort only: some WADs (e.g. WinPack / TranslaTale) store extra data such as
+            // relocated objects inside the chunk region, so trailing bytes are not guaranteed to
+            // be zero padding. Stop at the first non-zero byte rather than erroring out.
             while (reader.AbsPosition % 0x80 != 0)
                 if (reader.ReadByte() != 0)
-                    throw new IOException("Padding error in STRG");
+                    break;
         }
 
         // There's no need to check padding in "UnserializeObjectCount()"
@@ -2191,9 +2218,11 @@ namespace UndertaleModLib
 
             // padding
             // (not "AbsPosition" because of "reader.SwitchReaderType(false)")
+            // Best-effort only: WADs such as WinPack / TranslaTale may store extra data inside the
+            // chunk region, so trailing bytes are not guaranteed to be zero padding.
             while (reader.Position % 4 != 0)
                 if (reader.ReadByte() != 0)
-                    throw new IOException("Padding error!");
+                    break;
         }
 
         internal override uint UnserializeObjectCount(UndertaleReader reader)

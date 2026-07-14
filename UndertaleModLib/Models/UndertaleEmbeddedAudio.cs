@@ -45,9 +45,10 @@ public class UndertaleEmbeddedAudio : UndertaleNamedResource, PaddedObject, IDis
     /// <inheritdoc />
     public void UnserializePadding(UndertaleReader reader)
     {
+        // Best-effort alignment only (WADs such as WinPack / TranslaTale may not zero-pad here).
         while (reader.AbsPosition % 4 != 0)
             if (reader.ReadByte() != 0)
-                throw new IOException("Padding error!");
+                break;
     }
 
     /// <inheritdoc />

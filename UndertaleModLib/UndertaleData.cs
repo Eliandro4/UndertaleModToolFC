@@ -309,9 +309,16 @@ namespace UndertaleModLib
         public bool UnsupportedBytecodeVersion = false;
 
         /// <summary>
-        /// Whether the Texture Page Items (TPGA) chunk is 4 byte aligned.
+        /// Whether the Texture Page Items (TPAG) chunk is 4 byte aligned.
         /// </summary>
         public bool IsTPAG4ByteAligned = false;
+
+        /// <summary>
+        /// Whether the data file was built with WinPack (e.g. TranslaTale), which stores
+        /// texture page items OUTSIDE of the IFF chunk and references them via absolute
+        /// file offsets that are not present in the TPAG pointer list.
+        /// </summary>
+        public bool IsWinPackWad = false;
 
         /// <summary>
         /// Whether the data file has short circuiting enabled.
