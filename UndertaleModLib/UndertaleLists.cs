@@ -558,6 +558,16 @@ namespace UndertaleModLib
                         continue;
                     }
 
+                    // Seek to the object's absolute address before reading it.
+                    // Objects are not always stored contiguously after the pointer
+                    // table (e.g. when relocated by a WAD), so reading them
+                    // sequentially from the previous object can end up misaligned.
+                    uint pos = reader.GetAddressForUndertaleObject(obj);
+                    if (reader.AbsPosition != pos)
+                    {
+                        reader.AbsPosition = pos;
+                    }
+
                     // Unserialize pre-padding, if this is a type that requires it
                     if (t.IsAssignableTo(typeof(PrePaddedObject)))
                     {
