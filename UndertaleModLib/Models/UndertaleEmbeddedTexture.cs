@@ -175,23 +175,22 @@ public class UndertaleEmbeddedTexture : UndertaleNamedResource, IDisposable
     /// Deserializes the in-file texture blob for this texture.
     /// </summary>
     /// <param name="reader">Where to deserialize from.</param>
-    public void UnserializeBlob(UndertaleReader reader)
-    {
-        // If external, don't deserialize blob
-        // Has sanity check for data being null as well, although the external flag should be set
-        if (_textureData == null || TextureExternal)
-            return;
+        public void UnserializeBlob(UndertaleReader reader)
+        {
+            // If external, don't deserialize blob
+            // Has sanity check for data being null as well, although the external flag should be set
+            if (_textureData == null || TextureExternal)
+                return;
 
-        // Best-effort alignment only: WADs such as WinPack / TranslaTale may store the blob at an
-        // absolute offset reached by seeking (see ReadUndertaleObject), so trailing bytes before it
-        // are not guaranteed to be zero padding. The blob is read by seeking to its offset anyway.
-        while (reader.AbsPosition % 0x80 != 0)
-            if (reader.ReadByte() != 0)
-                break;
+            // Seek directly to the texture data's absolute offset. WADs such as WinPack / TranslaTale
+            // relocate blobs to arbitrary offsets (which are not necessarily 0x80-aligned), so reading
+            // sequentially from the previous blob does not land on the next one. This matches the
+            // runner's/Butterscotch's absolute-offset resolution, and avoids spurious misalignment warnings.
+            reader.AbsPosition = reader.GetAddressForUndertaleObject(_textureData);
 
-        reader.ReadUndertaleObject(_textureData);
-        TextureLoaded = true;
-    }
+            reader.ReadUndertaleObject(_textureData);
+            TextureLoaded = true;
+        }
 
     /// <inheritdoc cref="UndertaleObject.UnserializeChildObjectCount(UndertaleReader)"/>
     public static uint UnserializeChildObjectCount(UndertaleReader reader)
