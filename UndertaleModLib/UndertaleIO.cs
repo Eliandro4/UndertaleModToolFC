@@ -857,10 +857,7 @@ namespace UndertaleModLib
                 {
                     long diff = (long)expectedLength - length;
                     reader.SubmitWarning("WARNING: File specified length " + expectedLength + ", but read only " + length + " (" + diff + " padding?)");
-                    if (diff > 0)
-                        reader.AbsPosition = startPos + expectedLength;
-                    else
-                        throw new IOException("Read underflow");
+                    reader.AbsPosition = startPos + expectedLength;
                 }
             }
         }
